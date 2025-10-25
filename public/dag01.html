@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tinyML4D Ecosystem DAG Viewer</title>
+    <!-- Load Tailwind CSS for simple, modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#4CAF50', // Green for tinyML4D
+                        'secondary': '#FF9800', // Orange for contrast
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Load vis-network (Community Edition) for Graph Visualization -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <style>
+        /* Minimal custom CSS for vis-network container and button hover */
+        #myNetworkContainer {
+            width: 100%;
+            height: 600px;
+            border-radius: 0.5rem;
+            border: 2px solid #ccc;
+        }
+        .my-button-style:hover {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-4 sm:p-8 font-sans">
+
+    <!-- Global Canvas Environment Variables Setup (Mandatory) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db, auth;
+
+        // Simplified Initialization for visualization (Firestore not used for storage)
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            // Sign in process
+            if (initialAuthToken) {
+                signInWithCustomToken(auth, initialAuthToken).catch(e => console.error("Custom token sign-in failed:", e));
+            } else {
+                signInAnonymously(auth).catch(e => console.error("Anonymous sign-in failed:", e));
+            }
+        }
+        // Exposing global variables for potential future use (though not needed for this visualization)
+        window.myAppId = appId;
+    </script>
+
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-primary">tinyML4D Ecosystem DAG</h1>
+            <p class="text-gray-600 mt-1">Interactive visualization of different stakeholder perspectives.</p>
+        </header>
+
+        <!-- View Selector Buttons -->
+        <div id="myViewSelectors" class="flex flex-wrap justify-center gap-3 mb-8">
+            <button onclick="myLoadView('All')" class="my-button-style bg-primary hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                All Nodes
+            </button>
+            <button onclick="myLoadView('Professor')" class="my-button-style bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Professor View
+            </button>
+            <button onclick="myLoadView('Industry')" class="my-button-style bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Industry View
+            </button>
+            <button onclick="myLoadView('OpenSource')" class="my-button-style bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Open Source View
+            </button>
+            <button onclick="myLoadView('Funding')" class="my-button-style bg-yellow-500 hover:bg-yellow-600 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Funding View
+            </button>
+        </div>
+
+        <!-- Visualization Container -->
+        <div id="myNetworkContainer" class="shadow-lg bg-white"></div>
+        
+        <!-- Info Panel for Interactivity -->
+        <div id="myInfoPanel" class="mt-6 p-4 bg-white rounded-lg shadow-md border-l-4 border-primary">
+            <h3 class="text-xl font-semibold text-gray-800">Node Information</h3>
+            <p id="myNodeDetails" class="text-gray-600 mt-2">Click on a node in the graph to see its details here.</p>
+        </div>
+    </div>
+
+    <script>
+        // Data Structure: Mimicking a Backend API response
+        // This is the single source of truth for all DAG data.
+        const myMasterDagData = {
+            nodes: [
+                // Roles/Groups
+                { id: 'P1', label: 'Dr. Anita Sharma', group: 'Professor', title: 'Specializes in Efficient ML' },
+                { id: 'I1', label: 'Ecom Electronics', group: 'Industry', title: 'Sponsor of the Edge AI Project' },
+                { id: 'OS1', label: 'TinyMLx Library', group: 'OpenSource', title: 'Key tinyML toolkit, MIT License' },
+                { id: 'F1', label: 'Green Tech Fund', group: 'Funding', title: 'Focus on sustainable technology' },
+                // Projects/Modules
+                { id: 'PrA', label: 'Edge AI Project', group: 'Project', title: 'Focus: Low-power CV on microcontrollers' },
+                { id: 'H1', label: 'ARM M0 Module', group: 'Hardware', title: 'Target deployment hardware' },
+                { id: 'S1', label: 'Student: Maria R.', group: 'Student', title: 'Researching pruning algorithms' },
+                { id: 'S2', label: 'Student: Ben K.', group: 'Student', title: 'Developing OS1 integration' },
+                // Other Entities
+                { id: 'PrB', label: 'Model Compression Paper', group: 'Publication', title: 'Published in ICCV 2025' },
+                { id: 'I2', label: 'AgriTech Startup', group: 'Industry', title: 'Adopting PrA technology' },
+                { id: 'OS2', label: 'Keras Lite API', group: 'OpenSource', title: 'Wrapper for easy deployment' },
+            ],
+            edges: [
+                // P1 (Professor) links
+                { from: 'P1', to: 'S1', label: 'Supervises', arrows: 'to' },
+                { from: 'P1', to: 'S2', label: 'Supervises', arrows: 'to' },
+                { from: 'P1', to: 'PrA', label: 'Leads', arrows: 'to' },
+                { from: 'P1', to: 'PrB', label: 'Authored', arrows: 'to' },
+                // Industry links
+                { from: 'I1', to: 'PrA', label: 'Funds (200K)', arrows: 'to' },
+                { from: 'I2', to: 'PrA', label: 'Adopts', arrows: 'to' },
+                // Funding links
+                { from: 'F1', to: 'PrA', label: 'Grants', arrows: 'to' },
+                { from: 'F1', to: 'OS1', label: 'Supports', arrows: 'to' },
+                // Project links
+                { from: 'PrA', to: 'OS1', label: 'Uses Toolkit', arrows: 'to' },
+                { from: 'PrA', to: 'H1', label: 'Targets', arrows: 'to' },
+                { from: 'S1', to: 'PrB', label: 'Contributed to', arrows: 'to' },
+                // Open Source links
+                { from: 'OS1', to: 'OS2', label: 'Integrates', arrows: 'to' },
+                { from: 'S2', to: 'OS1', label: 'Maintains', arrows: 'to' },
+            ]
+        };
+
+        // --- Core Rendering Function ---
+
+        /**
+         * @function myRenderNetwork
+         * @description Initializes and renders the vis-network graph in a specified container.
+         * @param {string} myContainerId The ID of the HTML element to draw the network in.
+         * @param {object} myData The data object containing nodes and edges arrays.
+         * @returns {void}
+         */
+        async function myRenderNetwork(myContainerId, myData) {
+            const myContainer = document.getElementById(myContainerId);
+            // Clear previous graph
+            myContainer.innerHTML = '';
+
+            // Use DataSet objects for better dynamic handling
+            const myNodes = new vis.DataSet(myData.nodes);
+            const myEdges = new vis.DataSet(myData.edges);
+            
+            const myGraphData = { nodes: myNodes, edges: myEdges };
+
+            // Configuration options for the DAG layout
+            const myOptions = {
+                // Disabling physics simulation for static, hierarchical layout
+                physics: { enabled: false }, 
+                layout: {
+                    hierarchical: {
+                        enabled: true,
+                        direction: 'UD', // Up-Down flow (DAG)
+                        sortMethod: 'directed',
+                        levelSeparation: 150,
+                        nodeSpacing: 120,
+                    }
+                },
+                groups: {
+                    Professor: { color: { background: '#2196F3', border: '#1565C0' }, shape: 'box', font: { color: 'white' } }, // Blue
+                    Industry: { color: { background: '#FF9800', border: '#E65100' }, shape: 'star', font: { color: 'white' } }, // Orange
+                    OpenSource: { color: { background: '#9C27B0', border: '#4A148C' }, shape: 'triangle', font: { color: 'white' } }, // Purple
+                    Funding: { color: { background: '#FFEB3B', border: '#FBC02D' }, shape: 'diamond', font: { color: 'black' } }, // Yellow
+                    Project: { color: { background: '#4CAF50', border: '#2E7D32' }, shape: 'dot', size: 15, font: { color: 'white' } }, // Green
+                    Student: { color: { background: '#795548', border: '#3E2723' }, shape: 'ellipse', font: { color: 'white' } }, // Brown
+                    Hardware: { color: { background: '#607D8B', border: '#37474F' }, shape: 'square', font: { color: 'white' } }, // Gray
+                    Publication: { color: { background: '#00BCD4', border: '#00838F' }, shape: 'text', font: { color: 'black' } }, // Cyan
+                },
+                // Add click event handling
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 100,
+                }
+            };
+
+            const myNetwork = new vis.Network(myContainer, myGraphData, myOptions);
+
+            // Add simple event listener (as per user preference, using network.on)
+            myNetwork.on('click', (myProperties) => {
+                const myNodeDetails = document.getElementById('myNodeDetails');
+                const myClickedNodeId = myProperties.nodes[0]; // Get the ID of the clicked node
+
+                if (myClickedNodeId) {
+                    const myNode = myNodes.get(myClickedNodeId);
+                    myNodeDetails.innerHTML = `
+                        <p><strong>Name/Title:</strong> ${myNode.label}</p>
+                        <p><strong>Role:</strong> <span class="text-xs font-mono px-2 py-1 rounded-full text-white" style="background-color: ${myOptions.groups[myNode.group].color.background}">${myNode.group}</span></p>
+                        <p><strong>Description:</strong> ${myNode.title}</p>
+                    `;
+                } else {
+                    myNodeDetails.innerHTML = "Click on a node in the graph to see its details here.";
+                }
+            });
+        }
+
+
+        // --- Filtering Functions for Views ---
+
+        /**
+         * @function myGetRelevantNeighbors
+         * @description Finds all connected nodes and edges for a given starting node/group.
+         * @param {string} myStartId The ID or group name to start filtering from.
+         * @param {string} myFilterType 'id' or 'group'.
+         * @returns {object} Filtered nodes and edges.
+         */
+        async function myGetRelevantNeighbors(myStartId, myFilterType) {
+            let myFilteredNodes = new Set();
+            let myFilteredEdges = [];
+
+            // 1. Identify starting nodes
+            const myStartNodes = myMasterDagData.nodes.filter(n => 
+                myFilterType === 'id' ? n.id === myStartId : n.group === myStartId
+            );
+
+            myStartNodes.forEach(n => myFilteredNodes.add(n.id));
+
+            // 2. Traverse one level out from starting nodes
+            let myIdsToProcess = [...myFilteredNodes];
+            let myNewEdges = [];
+
+            myMasterDagData.edges.forEach(edge => {
+                const isFromStart = myIdsToProcess.includes(edge.from);
+                const isToStart = myIdsToProcess.includes(edge.to);
+
+                if (isFromStart || isToStart) {
+                    myFilteredEdges.push(edge);
+                    // Add connected nodes (neighbors)
+                    if (isFromStart) myFilteredNodes.add(edge.to);
+                    if (isToStart) myFilteredNodes.add(edge.from);
+                }
+            });
+
+            // 3. Finalize node list
+            const myFinalNodes = myMasterDagData.nodes.filter(n => myFilteredNodes.has(n.id));
+
+            return {
+                nodes: myFinalNodes,
+                edges: myFilteredEdges,
+            };
+        }
+
+
+        // --- View Loading Functions ---
+
+        /**
+         * @function myLoadView
+         * @description Main dispatcher to load the requested visualization view.
+         * @param {string} myViewName The name of the view to load ('All', 'Professor', etc.).
+         * @returns {void}
+         */
+        async function myLoadView(myViewName) {
+            let myDataToRender;
+            document.getElementById('myNodeDetails').innerText = `Loading ${myViewName} View... Click a node for details.`;
+
+            switch (myViewName) {
+                case 'All':
+                    myDataToRender = myMasterDagData;
+                    break;
+                case 'Professor':
+                    // Center the view on a key professor and their direct network
+                    // We use an ID ('P1') for a specific person's view
+                    myDataToRender = await myGetRelevantNeighbors('P1', 'id');
+                    break;
+                case 'Industry':
+                    // Center the view on all Industry partners and their connected projects/funding
+                    myDataToRender = await myGetRelevantNeighbors('Industry', 'group');
+                    break;
+                case 'OpenSource':
+                    // Focus on a key Open Source project and its developers/users
+                    myDataToRender = await myGetRelevantNeighbors('OS1', 'id');
+                    break;
+                case 'Funding':
+                    // Show all funding bodies and what they support
+                    myDataToRender = await myGetRelevantNeighbors('Funding', 'group');
+                    break;
+                default:
+                    myDataToRender = myMasterDagData;
+                    break;
+            }
+
+            // Render the filtered data
+            await myRenderNetwork('myNetworkContainer', myDataToRender);
+        }
+
+        // --- Initial Load ---
+
+        // Start by loading the full map when the page loads
+        window.onload = () => {
+            // Load the default 'All' view
+            myLoadView('All'); 
+        };
+    </script>
+</body>
+</html>
