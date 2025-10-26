@@ -1,0 +1,12 @@
+{
+"name": "tinyml4d-dag-server",
+"version": "1.0.0",
+"description": "Node.js server for tinyML4D Ecosystem DAG Visualization, providing views via API.",
+"main": "server.js",
+"scripts": {
+"start": "node server.js"
+},
+"dependencies": {
+"express": "^4.19.2"
+}
+}
