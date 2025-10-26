@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tinyML4D Ecosystem DAG Viewer (Interactive Clustering)</title>
+    <!-- Load Tailwind CSS for simple, modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#4CAF50', // Green for tinyML4D
+                        'secondary': '#FF9800', // Orange for contrast
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Load vis-network (Community Edition) for Graph Visualization -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <style>
+        /* CSS for Resizable Container */
+        #myNetworkContainer {
+            /* Enable vertical and horizontal resizing */
+            resize: both;
+            overflow: auto; 
+            min-height: 300px; 
+            width: 100%;
+            height: 450px; 
+            border-radius: 0.5rem;
+            border: 2px solid #ccc;
+        }
+        
+        .my-button-style:hover {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-4 sm:p-8 font-sans">
+
+    <!-- Global Canvas Environment Variables Setup (Mandatory) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas environment
+        const myAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const myFirebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const myInitialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let myDb, myAuth;
+
+        if (myFirebaseConfig) {
+            const myApp = initializeApp(myFirebaseConfig);
+            myDb = getFirestore(myApp);
+            myAuth = getAuth(myApp);
+            
+            if (myInitialAuthToken) {
+                signInWithCustomToken(myAuth, myInitialAuthToken).catch(myError => console.error("Custom token sign-in failed:", myError));
+            } else {
+                signInAnonymously(myAuth).catch(myError => console.error("Anonymous sign-in failed:", myError));
+            }
+        }
+    </script>
+
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-primary">tinyML4D Ecosystem DAG (Interactive Clustering)</h1>
+            <p class="text-gray-600 mt-1">Click a Cluster node to expand. Double-click the background to contract all.</p>
+        </header>
+
+        <!-- View Selector Buttons -->
+        <div id="myViewSelectors" class="flex flex-wrap justify-center gap-3 mb-8">
+            <button onclick="myLoadView('All')" class="my-button-style bg-primary hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                All Nodes
+            </button>
+            <button onclick="myLoadView('Professor')" class="my-button-style bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Professor View
+            </button>
+            <button onclick="myLoadView('ClusteredStudent')" class="my-button-style bg-blue-800 hover:bg-blue-900 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Clustered Student View (Demo)
+            </button>
+            <button onclick="myLoadView('MLSysBook')" class="my-button-style bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                MLSysBook View
+            </button>
+            
+            <button onclick="myLoadView('Industry')" class="my-button-style bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Industry View
+            </button>
+            <button onclick="myLoadView('OpenSource')" class="my-button-style bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Open Source View
+            </button>
+            <button onclick="myLoadView('Funding')" class="my-button-style bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Funding View
+            </button>
+            <button onclick="myLoadView('Discord')" class="my-button-style bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Discord View
+            </button>
+            <button onclick="myLoadView('LinkedIn')" class="my-button-style bg-cyan-700 hover:bg-cyan-800 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                LinkedIn View
+            </button>
+            
+            <!-- NEW ADMIN VIEW BUTTON -->
+            <button onclick="myLoadView('Admin')" class="my-button-style bg-red-700 hover:bg-red-800 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Admin View (Weighted)
+            </button>
+            <!------------------------>
+            
+             <button onclick="myClearStorageAndReset()" class="my-button-style bg-gray-500 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Reset Views
+            </button>
+        </div>
+
+        <!-- Visualization Container -->
+        <div id="myNetworkContainer" class="shadow-lg bg-white"></div>
+        
+        <!-- Info Panel for Interactivity -->
+        <div id="myInfoPanel" class="mt-6 p-4 bg-white rounded-lg shadow-md border-l-4 border-primary">
+            <h3 class="text-xl font-semibold text-gray-800">Node Information</h3>
+            <p id="myNodeDetails" class="text-gray-600 mt-2">Click on a node in the graph to see its details here.</p>
+        </div>
+    </div>
+
+    <script>
+        let myCurrentView = 'All';
+        let myNetwork = null;
+        let myAllNodes = null;
+        let myAllEdges = null;
+
+        // --- STATIC DATA FOR DEMO (UPDATED WITH WEIGHTS AND ADMIN) ---
+        const myMasterDagData = {
+            nodes: [
+                { id: 'P1', label: 'Dr. Anita Sharma', group: 'Professor', title: 'Specializes in Efficient ML', chaptersFinished: 12 },
+                { id: 'P2', label: 'Dr. Jane Doe', group: 'Professor', title: 'Interested in Industry Collaboration', chaptersFinished: 10 },
+                
+                // Student Nodes
+                { id: 'S1', label: 'Student: Maria R.', group: 'Student', location: 'London', title: 'Researching pruning algorithms', details: { GPA: 3.8, Progress: '90%', Thesis: 'Pruning Algorithms for Edge Devices' }, chaptersFinished: 8 },
+                { id: 'S2', label: 'Student: Ben K.', group: 'Student', location: 'Lagos', title: 'Developing OS1 integration', details: { GPA: 3.1, Progress: '65%', Thesis: 'OS Integration on ARM M0' }, chaptersFinished: 5 },
+                { id: 'S3', label: 'Student: Kai L.', group: 'Student', location: 'London', title: 'Focus on Industry-ready prototypes', details: { GPA: 3.9, Progress: '95%', Thesis: 'Industry-Scale tinyML Prototyping' }, chaptersFinished: 9 },
+                { id: 'S4', label: 'Student: Zoe V.', group: 'Student', location: 'Lima', title: 'Edge sensor network deployment', chaptersFinished: 7 },
+                { id: 'S5', label: 'Student: Alex J.', group: 'Student', location: 'Lagos', title: 'Model quantization research', chaptersFinished: 10 },
+                { id: 'S6', label: 'Student: Eli F.', group: 'Student', location: 'London', title: 'Low-latency deployment strategy', chaptersFinished: 11 }, 
+                
+                // Other Entities
+                { id: 'I1', label: 'Ecom Electronics', group: 'Industry', title: 'Sponsor of the Edge AI Project' },
+                { id: 'OS1', label: 'TinyMLx Library', group: 'OpenSource', title: 'Key tinyML toolkit, MIT License' },
+                { id: 'PrA', label: 'Edge AI Project', group: 'Project', title: 'Focus: Low-power CV on microcontrollers' },
+                { id: 'PrB', label: 'Model Compression Paper', group: 'Publication', title: 'Published in ICCV 2025' },
+                { id: 'H1', label: 'ARM M0 Module', group: 'Hardware', title: 'Target deployment hardware' },
+                { id: 'E1', label: 'Maker Workshop', group: 'Educator', title: 'Teaches practical tinyML implementation', chaptersFinished: 12 },
+                { id: 'A1', label: 'Audit: Observer 1', group: 'Audit', title: 'Reads content without formal enrollment.' },
+                { id: 'F1', label: 'Green Tech Fund', group: 'Funding', title: 'Focus on sustainable technology' },
+                
+                // Social Entities
+                { id: 'D1', label: 'Discord Server', group: 'Discord', title: 'Community Support Channel' },
+                { id: 'L1', label: 'LinkedIn Group', group: 'LinkedIn', title: 'Professional Networking & Recruiting' },
+
+                // NEW ADMIN NODE
+                { id: 'Ad1', label: 'System Admin: Chris B.', group: 'Admin', title: 'Manages Industry & Faculty Relations' },
+            ],
+            edges: [
+                // Professor P1 (Anita) links
+                { from: 'P1', to: 'S1', label: 'Supervises', arrows: 'to' },
+                { from: 'P1', to: 'S2', label: 'Supervises / Ability', myWeight: 0.40, title: 'Needs Development/Support (0.40)', arrows: 'to' }, // WEIGHTED
+                { from: 'P1', to: 'PrA', label: 'Leads', arrows: 'to' },
+                { from: 'P1', to: 'S6', label: 'Supervises', arrows: 'to' }, 
+                { from: 'S1', to: 'PrB', label: 'Contributed to', arrows: 'to' }, 
+                // Professor P2 (Jane) links
+                { from: 'P2', to: 'S3', label: 'Supervises / Ability', myWeight: 0.95, title: 'High Ability/Connectedness (0.95)', arrows: 'to' }, // WEIGHTED
+                { from: 'P2', to: 'S4', label: 'Supervises', arrows: 'to' }, 
+                { from: 'P2', to: 'S5', label: 'Supervises', arrows: 'to' }, 
+                { from: 'P2', to: 'I1', label: 'Collaborates with', arrows: 'to' },
+                // Project links
+                { from: 'PrA', to: 'OS1', label: 'Uses Toolkit', arrows: 'to' },
+                { from: 'S3', to: 'I1', label: 'Prototypes for', arrows: 'to' }, 
+                { from: 'S2', to: 'OS1', label: 'Maintains', arrows: 'to' }, 
+                { from: 'S4', to: 'H1', label: 'Tests on', arrows: 'to' }, 
+                // Funding/Education
+                { from: 'F1', to: 'PrA', label: 'Grants', arrows: 'to' },
+                { from: 'E1', to: 'S5', label: 'Teaches', arrows: 'to' }, 
+                { from: 'E1', to: 'A1', label: 'Provides material to', arrows: 'to' },
+                
+                // Social Links
+                { from: 'E1', to: 'D1', label: 'Manages Community', arrows: 'to' }, 
+                { from: 'S2', to: 'D1', label: 'Active Member', arrows: 'to' }, 
+                { from: 'OS1', to: 'D1', label: 'Provides Support on', arrows: 'to' }, 
+                { from: 'P2', to: 'L1', label: 'Moderates Group', arrows: 'to' }, 
+                { from: 'I1', to: 'L1', label: 'Recruits from', arrows: 'to' }, 
+                { from: 'F1', to: 'L1', label: 'Promotes Opportunities on', arrows: 'to' },
+
+                // NEW ADMIN WEIGHTED CONNECTIONS
+                { from: 'Ad1', to: 'P1', label: 'Collaboration', myWeight: 1.0, title: 'Positive Conference Interaction (1.0)', arrows: 'to' }, // WEIGHTED (Strongest)
+                { from: 'Ad1', to: 'I1', label: 'Recruiting Relationship', myWeight: 0.85, title: 'Formal Industry Partnership (0.85)', arrows: 'to' }, // WEIGHTED
+                { from: 'Ad1', to: 'S3', label: 'Mentoring', myWeight: 0.55, title: 'Frequent Online Check-ins (0.55)', arrows: 'to' }, // WEIGHTED
+                { from: 'Ad1', to: 'F1', label: 'Funding Pipeline', myWeight: 0.90, title: 'Secured Annual Funding (0.90)', arrows: 'to' }, // WEIGHTED
+                { from: 'Ad1', to: 'D1', label: 'Community Oversight', myWeight: 0.20, title: 'Occasional Check-ins (0.20)', arrows: 'to' } // WEIGHTED (Weakest)
+            ]
+        };
+
+        // --- VIS-NETWORK CLUSTERING FUNCTIONS ---
+
+        /**
+         * @function myApplyClustering
+         * @description Applies clustering logic to the network based on the Student's location.
+         * The clustering is handled internally by vis.Network.
+         */
+        function myApplyClustering() {
+            if (!myNetwork || !myAllNodes) return;
+            
+            const myLocations = ['London', 'Lagos', 'Lima']; // Locations to cluster by
+
+            myLocations.forEach((myLocation) => {
+                const myClusterOptions = {
+                    joinCondition: (nodeData) => {
+                        return nodeData.group === 'Student' && nodeData.location === myLocation;
+                    },
+                    clusterNodeProperties: {
+                        id: `cluster_student_${myLocation}`,
+                        label: `Students in ${myLocation}`,
+                        title: `Click to view ${myLocation} students.`,
+                        group: 'StudentCluster', // Distinct group for visualization
+                        shape: 'database',
+                        font: { size: 16, color: 'white', face: 'Inter' }
+                    }
+                };
+                
+                // Cluster the nodes that meet the joinCondition
+                myNetwork.cluster(myClusterOptions);
+            });
+            
+            console.log("Interactive Student Clustering Applied.");
+        }
+
+
+        /**
+         * @function myRenderNetwork
+         * @description Initializes and renders the vis-network graph. Returns the network instance.
+         * @returns {vis.Network} The network instance.
+         */
+        async function myRenderNetwork(myContainerId, myData, myCurrentViewName) {
+            const myContainer = document.getElementById(myContainerId);
+            myContainer.innerHTML = '';
+
+            // --- Pre-process Edges for Weight Visualization ---
+            const myVisualEdges = myData.edges.map(myEdge => {
+                const myNewEdge = { ...myEdge }; // Create a shallow copy
+                
+                if (myNewEdge.myWeight !== undefined) {
+                    const myWeight = myNewEdge.myWeight;
+                    
+                    // 1. Update label to show the weight clearly
+                    myNewEdge.label = `${myEdge.label} (${myWeight.toFixed(2)})`;
+
+                    // 2. Use weight to determine thickness (from 1 to 5)
+                    myNewEdge.width = 1 + (myWeight * 4); 
+
+                    // 3. Use weight to determine color (stronger = darker green)
+                    const myWeightIntensity = Math.floor(myWeight * 180) + 75; // 75 to 255
+                    myNewEdge.color = { 
+                        color: `rgb(0, ${myWeightIntensity}, 0)`, 
+                        highlight: `rgb(0, ${myWeightIntensity + 30}, 0)`,
+                        inherit: 'false',
+                        opacity: 1
+                    };
+                    
+                    // Ensure arrows are on for weighted connections
+                    if (!myNewEdge.arrows) myNewEdge.arrows = 'to';
+                }
+                return myNewEdge;
+            });
+
+            myAllNodes = new vis.DataSet(myData.nodes);
+            myAllEdges = new vis.DataSet(myVisualEdges); // Use processed edges
+            
+            const myGraphData = { nodes: myAllNodes, edges: myAllEdges };
+
+            const myOptions = {
+                physics: { enabled: false }, 
+                layout: {
+                    hierarchical: {
+                        enabled: true,
+                        direction: 'UD', 
+                        sortMethod: 'directed',
+                        levelSeparation: 150,
+                        nodeSpacing: 120,
+                    }
+                },
+                groups: {
+                    Professor: { color: { background: '#2196F3', border: '#1565C0' }, shape: 'box', font: { color: 'white' } }, 
+                    Industry: { color: { background: '#FF9800', border: '#E65100' }, shape: 'box', font: { color: 'white' } }, 
+                    OpenSource: { color: { background: '#9C27B0', border: '#4A148C' }, shape: 'box', font: { color: 'white' } }, 
+                    Funding: { color: { background: '#FFEB3B', border: '#FBC02D' }, shape: 'box', font: { color: 'black' } }, 
+                    Project: { color: { background: '#4CAF50', border: '#2E7D32' }, shape: 'square', font: { color: 'white' } }, 
+                    Student: { color: { background: '#795548', border: '#3E2723' }, shape: 'ellipse', font: { color: 'white' } }, 
+                    Hardware: { color: { background: '#607D8B', border: '#37474F' }, shape: 'square', font: { color: 'white' } }, 
+                    Educator: { color: { background: '#00BFA5', border: '#00796B' }, shape: 'square', font: { color: 'white' } }, 
+                    Audit: { color: { background: '#673AB7', border: '#512DA8' }, shape: 'dot', font: { color: 'white' } }, 
+                    Discord: { color: { background: '#7289DA', border: '#4E5D94' }, shape: 'hexagon', font: { color: 'white' } }, 
+                    LinkedIn: { color: { background: '#0A66C2', border: '#004182' }, shape: 'square', font: { color: 'white' } }, 
+                    Admin: { color: { background: '#A00000', border: '#600000' }, shape: 'star', font: { color: 'white', size: 18 } }, // NEW ADMIN GROUP
+                    StudentCluster: { color: { background: '#3F51B5', border: '#1A237E', highlight: '#5C6BC0' }, font: { color: 'white' } },
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 100,
+                },
+                edges: {
+                    // Default edge options for unweighted connections
+                    color: { inherit: true },
+                    smooth: { type: 'dynamic' }
+                }
+            };
+
+            myNetwork = new vis.Network(myContainer, myGraphData, myOptions);
+
+            // --- Interactive Click Handler ---
+            myNetwork.on('click', (myProperties) => {
+                const myNodeDetails = document.getElementById('myNodeDetails');
+                const myClickedNodeId = myProperties.nodes[0];
+
+                if (myClickedNodeId) {
+                    // Check if the clicked node is a cluster node
+                    if (myNetwork.isCluster(myClickedNodeId)) {
+                        myNetwork.openCluster(myClickedNodeId); // Expand the cluster
+                        myNodeDetails.innerHTML = `<p class="font-bold text-blue-600">CLUSTER EXPANDED</p><p>Individual students are now visible. Click a student node for details.</p>`;
+                        return; 
+                    }
+                    
+                    // If it's a regular node (or an expanded member), show details
+                    const myNode = myAllNodes.get(myClickedNodeId);
+                    const myGroupConfig = myOptions.groups[myNode.group] || {};
+                    const myGroupColor = myGroupConfig.color ? myGroupConfig.color.background : '#333';
+
+                    let myDetailsHtml = `
+                        <p><strong>Name/Title:</strong> ${myNode.label}</p>
+                        <p><strong>Role:</strong> <span class="text-xs font-mono px-2 py-1 rounded-full text-white" style="background-color: ${myGroupColor}">${myNode.group}</span></p>
+                        <p><strong>Description:</strong> ${myNode.title}</p>
+                    `;
+                    
+                    // MLSysBook Progress View Logic (Applies to all relevant groups)
+                    if ((myCurrentView === 'MLSysBook' || myCurrentView === 'All' || myCurrentView === 'Professor') && myNode.chaptersFinished !== undefined) {
+                        
+                        if (myNode.group === 'Audit') {
+                            myDetailsHtml += `
+                                <hr class="my-2 border-dashed">
+                                <p class="font-bold text-purple-600">MLSYSBOOK.AI AUDIT STATUS</p>
+                                <p>Progress tracking is not available for Audit participants in this view.</p>
+                            `;
+                        } else {
+                            myDetailsHtml += `
+                                <hr class="my-2 border-dashed">
+                                <p class="font-bold text-indigo-600">MLSYSBOOK.AI PROGRESS</p>
+                                <p><strong>Chapters Finished:</strong> <span class="font-semibold text-indigo-700">${myNode.chaptersFinished} / 12</span></p>
+                            `;
+                        }
+                    }
+
+                    myNodeDetails.innerHTML = myDetailsHtml;
+                } else {
+                    myNodeDetails.innerHTML = "Click on a node in the graph to see its details here.";
+                }
+            });
+
+            // --- Double-Click Handler for Contraction ---
+            myNetwork.on('doubleClick', (myProperties) => {
+                if (myProperties.nodes.length === 0 && myProperties.edges.length === 0) {
+                    // Only contract if the background is double-clicked (no node/edge selected)
+                    if (myNetwork.getClusteredNodeIds().length > 0) {
+                        // Re-apply clustering to contract all open clusters
+                        myApplyClustering(); 
+                        document.getElementById('myNodeDetails').innerHTML = `<p class="font-bold text-red-600">ALL CLUSTERS CONTRACTED</p><p>The view has been simplified again.</p>`;
+                    }
+                }
+            });
+            
+            mySaveCurrentView(myCurrentViewName, myData);
+            return myNetwork;
+        }
+
+
+        // --- Local Storage Functions (for UI state) ---
+
+        function mySaveCurrentView(myViewName, myData) {
+            try {
+                // IMPORTANT: Only save the original data structure, not the visualization properties (like width/color) added in myRenderNetwork
+                const myDataToSave = JSON.stringify({ nodes: myData.nodes, edges: myMasterDagData.edges.filter(e => myData.edges.some(ve => ve.id === e.id || (ve.from === e.from && ve.to === e.to))) });
+                localStorage.setItem(`dagViewData_${myViewName}`, myDataToSave);
+                localStorage.setItem('dagLastView', myViewName);
+            } catch (myError) {
+                console.error("Error saving to local storage:", myError);
+            }
+        }
+
+        function myLoadViewFromStorage(myViewName) {
+            try {
+                const myDataString = localStorage.getItem(`dagViewData_${myViewName}`);
+                if (myDataString) {
+                    return JSON.parse(myDataString);
+                }
+                return null;
+            } catch (myError) {
+                console.error("Error loading from local storage:", myError);
+                return null;
+            }
+        }
+
+        function myClearStorageAndReset() {
+            try {
+                localStorage.removeItem('dagLastView');
+                ['All', 'Professor', 'MLSysBook', 'ClusteredStudent', 'Industry', 'OpenSource', 'Funding', 'Discord', 'LinkedIn', 'Admin'].forEach(myView => {
+                    localStorage.removeItem(`dagViewData_${myView}`);
+                });
+                console.log("Local storage cleared. Reloading All Nodes view.");
+                myLoadView('All');
+            } catch (myError) {
+                console.error("Error resetting local storage:", myError);
+            }
+        }
+
+
+        // --- Filtering Functions for Views ---
+
+        /**
+         * @function myGetRelevantNeighbors
+         * @description Filters nodes and edges based on allowed groups.
+         */
+        async function myGetRelevantNeighbors(myAllowedGroups) {
+            const myFilteredNodes = myMasterDagData.nodes.filter(myNode => myAllowedGroups.includes(myNode.group));
+            const myFilteredNodeIds = myFilteredNodes.map(myNode => myNode.id);
+
+            const myFilteredEdges = myMasterDagData.edges.filter(myEdge => 
+                myFilteredNodeIds.includes(myEdge.from) && myFilteredNodeIds.includes(myEdge.to)
+            );
+
+            // Give unique IDs to edges for better management in vis-network
+            const myEdgesWithIds = myFilteredEdges.map((edge, index) => ({...edge, id: `e${edge.from}_${edge.to}_${index}`}));
+
+            return {
+                nodes: myFilteredNodes,
+                edges: myEdgesWithIds,
+            };
+        }
+
+
+        // --- View Loading Functions ---
+
+        async function myLoadView(myViewName) {
+            // Note: We skip loading from storage for the clustering view to ensure clustering is reapplied correctly
+            let myDataToRender = (myViewName !== 'ClusteredStudent') ? myLoadViewFromStorage(myViewName) : null;
+            myCurrentView = myViewName;
+            
+            const myNodeDetailsElement = document.getElementById('myNodeDetails');
+            myNodeDetailsElement.innerText = `Loading ${myViewName} View... Please wait.`;
+
+            if (!myDataToRender) {
+                let myBaseData = myMasterDagData;
+
+                switch (myViewName) {
+                    case 'All':
+                        // Ensure 'All' view has unique edge IDs
+                        const allEdgesWithIds = myMasterDagData.edges.map((edge, index) => ({...edge, id: `e${edge.from}_${edge.to}_${index}`}));
+                        myDataToRender = { nodes: myMasterDagData.nodes, edges: allEdgesWithIds };
+                        break;
+                        
+                    case 'Professor':
+                        myBaseData = await myGetRelevantNeighbors(['Professor', 'Student', 'Project', 'Publication', 'Industry', 'Hardware']);
+                        myDataToRender = myBaseData;
+                        break;
+                        
+                    case 'MLSysBook':
+                        myBaseData = await myGetRelevantNeighbors(['Educator', 'Student', 'Audit', 'Project', 'Professor', 'Industry', 'Hardware']);
+                        myDataToRender = myBaseData;
+                        break;
+
+                    case 'Industry':
+                        myBaseData = await myGetRelevantNeighbors(['Industry', 'Professor', 'Student', 'Hardware', 'Project']);
+                        myDataToRender = myBaseData;
+                        break;
+
+                    case 'OpenSource':
+                        myBaseData = await myGetRelevantNeighbors(['OpenSource', 'Student', 'Professor', 'Project', 'Educator']);
+                        myDataToRender = myBaseData;
+                        break;
+
+                    case 'Funding':
+                        myBaseData = await myGetRelevantNeighbors(['Funding', 'Project', 'Professor']);
+                        myDataToRender = myBaseData;
+                        break;
+                    
+                    case 'Discord':
+                        myBaseData = await myGetRelevantNeighbors(['Student', 'Educator', 'OpenSource', 'Discord']);
+                        myDataToRender = myBaseData;
+                        break;
+
+                    case 'LinkedIn':
+                        myBaseData = await myGetRelevantNeighbors(['Professor', 'Industry', 'Publication', 'Funding', 'LinkedIn']);
+                        myDataToRender = myBaseData;
+                        break;
+
+                    case 'Admin':
+                        // NEW ADMIN VIEW: Admin, Professor, Student, Industry, Funding, Project (Focus on high-level connections)
+                        myBaseData = await myGetRelevantNeighbors(['Admin', 'Professor', 'Student', 'Industry', 'Funding', 'Project']);
+                        myDataToRender = myBaseData;
+                        break;
+
+                    case 'ClusteredStudent':
+                        myBaseData = await myGetRelevantNeighbors(['Professor', 'Student', 'Project', 'Publication', 'Industry', 'Hardware']);
+                        myDataToRender = myBaseData;
+                        // The clustering happens *after* rendering
+                        break;
+
+                    default:
+                        myDataToRender = myMasterDagData; 
+                        break;
+                }
+            }
+
+            if (myDataToRender) {
+                myNetwork = await myRenderNetwork('myNetworkContainer', myDataToRender, myViewName);
+
+                // Apply clustering immediately after rendering if we are in the Clustered View
+                if (myViewName === 'ClusteredStudent') {
+                    myApplyClustering();
+                }
+
+                myNodeDetailsElement.innerText = `Loaded ${myViewName} View. Click a node for details.`;
+            } else {
+                 myNodeDetailsElement.innerHTML = `<p class="text-red-600 font-bold">Error loading view: ${myViewName}.</p>`;
+            }
+        }
+
+        // --- Initial Load ---
+
+        window.onload = () => {
+            // Clear local storage on load to prevent using potentially broken cached views from the previous session
+            localStorage.removeItem('dagLastView');
+            ['All', 'Professor', 'MLSysBook', 'ClusteredStudent', 'Industry', 'OpenSource', 'Funding', 'Discord', 'LinkedIn', 'Admin'].forEach(myView => {
+                localStorage.removeItem(`dagViewData_${myView}`);
+            });
+            
+            const myLastView = 'All'; // Always start clean with 'All' after reset
+            myLoadView(myLastView); 
+        };
+    </script>
+</body>
+</html>
