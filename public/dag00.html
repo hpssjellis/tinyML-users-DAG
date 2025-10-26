@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>tinyML4D Ecosystem DAG Viewer (Interactive Clustering)</title>
+    <title>tinyML4D Ecosystem DAG Visualization (Interactive Clustering)</title>
     <!-- Load Tailwind CSS for simple, modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -185,35 +184,35 @@
                 { id: 'I2', label: 'SensorCo', group: 'Industry', title: 'Hardware vendor and sensor integration partner', type: 'Vendor' },
                 { id: 'I3', label: 'ML Consulting Group', group: 'Industry', title: 'Provides high-level strategy and recruitment for tinyML', type: 'Consultancy' },
                 
-                // K-12 Educators (UPDATED WITH NEW NODES)
+                // K-12 Educators (LABELS CLARIFIED)
                 { id: 'E2', label: 'Sarah L. (HS Teacher)', group: 'K-12 Educator', title: 'Developing high school tinyML curriculum.', chaptersFinished: 8 },
                 { id: 'E3', label: 'David M. (Curriculum)', group: 'K-12 Educator', title: 'Focus on ethical AI education and outreach.', chaptersFinished: 10 },
-                { id: 'E4', label: 'K-12: Suzie A.', group: 'K-12 Educator', title: 'Active in global K-12 network and content sharing.' },
-                { id: 'E5', label: 'K-12: Jeremy B.', group: 'K-12 Educator', title: 'STEM Educator focusing on physical computing projects.' },
+                { id: 'E4', label: 'Suzie A. (K-12 Network)', group: 'K-12 Educator', title: 'Active in global K-12 network and content sharing.' },
+                { id: 'E5', label: 'Jeremy B. (K-12 STEM)', group: 'K-12 Educator', title: 'STEM Educator focusing on physical computing projects.' },
                 
-                // Makers
-                { id: 'M1', label: 'Chris P.', group: 'Maker', title: 'Prototyping custom sensor hardware/Open Source Contributor.' },
-                { id: 'M2', label: 'Aisha K.', group: 'Maker', title: 'Active in online workshops and local maker spaces.' },
+                // Makers (LABELS CLARIFIED)
+                { id: 'M1', label: 'Maker: Chris P. (Hardware)', group: 'Maker', title: 'Prototyping custom sensor hardware/Open Source Contributor.' },
+                { id: 'M2', label: 'Maker: Aisha K. (Workshop)', group: 'Maker', title: 'Active in online workshops and local maker spaces.' },
 
-                // Employees (Hired from the ecosystem)
+                // Employees 
                 { id: 'Em1', label: 'Javier G. (Recruit)', group: 'Employee', title: 'Former student (S5), now R&D at Ecom Electronics (I1).', status: 'Alumnus' },
                 { id: 'Em2', label: 'Rina O. (Tech Lead)', group: 'Employee', title: 'Embedded Systems lead at SensorCo (I2).', status: 'Liaison' },
 
-                // Other Entities
+                // Other Entities (GENERAL EDUCATOR CLARIFIED)
                 { id: 'OS1', label: 'TinyMLx Library', group: 'OpenSource', title: 'Key tinyML toolkit, MIT License' },
                 { id: 'OS2', label: 'TFLite Micro Repo', group: 'OpenSource', title: 'External GitHub repo for TFLM project' },
                 { id: 'PrA', label: 'Edge AI Project', group: 'Project', title: 'Focus: Low-power CV on microcontrollers' },
                 { id: 'PrB', label: 'Model Compression Paper', group: 'Publication', title: 'Published in ICCV 2025' },
                 { id: 'H1', label: 'ARM M0 Module', group: 'Hardware', title: 'Target deployment hardware' },
-                { id: 'E1', label: 'Maker Workshop', group: 'Educator', title: 'Teaches practical tinyML implementation', chaptersFinished: 12 },
+                { id: 'E1', label: 'General Educator: Workshop', group: 'Educator', title: 'Teaches practical tinyML implementation', chaptersFinished: 12 },
                 { id: 'A1', label: 'Audit: Observer 1', group: 'Audit', title: 'Reads content without formal enrollment.' },
                 { id: 'F1', label: 'Green Tech Fund', group: 'Funding', title: 'Focus on sustainable technology' },
                 { id: 'F2', label: 'EU Horizon Grant', group: 'Funding', title: 'Large scale European Research Grant' },
                 
                 // Social Entities
-                { id: 'D1', label: 'Discord Server', group: 'Discord', title: 'Community Support Channel' },
-                { id: 'L1', label: 'LinkedIn Group', group: 'LinkedIn', title: 'Professional Networking & Recruiting' },
-                { id: 'G1', label: 'GitHub Organization', group: 'GitHub', title: 'Central development hub for the ecosystem' },
+                { id: 'D1', label: 'Community: Discord Server', group: 'Discord', title: 'Community Support Channel' },
+                { id: 'L1', label: 'Community: LinkedIn Group', group: 'LinkedIn', title: 'Professional Networking & Recruiting' },
+                { id: 'G1', label: 'Community: GitHub Org', group: 'GitHub', title: 'Central development hub for the ecosystem' },
 
                 // ADMIN NODE
                 { id: 'Ad1', label: 'System Admin: Chris B.', group: 'Admin', title: 'Manages Industry & Faculty Relations' },
@@ -315,16 +314,17 @@
             Student: { color: { background: '#795548', border: '#3E2723' }, shape: 'ellipse', font: { color: 'white' } }, 
             Hardware: { color: { background: '#607D8B', border: '#37474F' }, shape: 'square', font: { color: 'white' } }, 
             Educator: { color: { background: '#00BFA5', border: '#00796B' }, shape: 'square', font: { color: 'white' } }, 
-            Audit: { color: { background: '#673AB7', border: '#512DA8' }, shape: 'dot', font: { color: 'white' } }, 
-            Discord: { color: { background: '#7289DA', border: '#4E5D94' }, shape: 'hexagon', font: { color: 'white' } }, 
+            Audit: { color: { background: '#673AB7', border: '#512DA8' }, shape: 'circle', font: { color: 'white' }, size: 25 }, // Changed to circle and increased size
+            Discord: { color: { background: '#7289DA', border: '#4E5D94' }, shape: 'hexagon', font: { color: 'white' }, size: 30 }, // Increased size
             LinkedIn: { color: { background: '#0A66C2', border: '#004182' }, shape: 'square', font: { color: 'white' } }, 
-            GitHub: { color: { background: '#171515', border: '#000000' }, shape: 'star', font: { color: 'white' } }, 
-            Admin: { color: { background: '#A00000', border: '#600000' }, shape: 'star', font: { color: 'white', size: 18 } }, 
-            StudentCluster: { color: { background: '#3F51B5', border: '#1A237E', highlight: '#5C6BC0' }, font: { color: 'white' } },
+            GitHub: { color: { background: '#171515', border: '#000000' }, shape: 'star', font: { color: 'white' }, size: 30 }, // Increased size
+            Admin: { color: { background: '#A00000', border: '#600000' }, shape: 'star', font: { color: 'white', size: 35 } }, // Increased size
+            // CLUSTER STYLE: Use a distinct shape/color for the cluster node itself
+            StudentCluster: { color: { background: '#3F51B5', border: '#1A237E', highlight: '#5C6BC0' }, shape: 'database', font: { color: 'white', size: 16 } },
             
             // --- NEW GROUP STYLES ---
-            'K-12 Educator': { color: { background: '#F44336', border: '#C62828' }, shape: 'diamond', font: { color: 'white' } },
-            'Maker': { color: { background: '#8BC34A', border: '#558B2F' }, shape: 'triangle', font: { color: 'black' } },
+            'K-12 Educator': { color: { background: '#F44336', border: '#C62828' }, shape: 'diamond', font: { color: 'white' }, size: 25 }, // Increased size
+            'Maker': { color: { background: '#8BC34A', border: '#558B2F' }, shape: 'triangle', font: { color: 'black' }, size: 25 }, // Increased size
             'Employee': { color: { background: '#FFC107', border: '#FF8F00' }, shape: 'box', font: { color: 'black' } },
         };
 
@@ -374,16 +374,15 @@
         // --- VIS-NETWORK CLUSTERING FUNCTIONS ---
 
         /**
-         * @function myApplyClustering
+         * @function myClusterStudentNodes
          * @description Applies clustering logic to the network based on the Student's location.
          */
-        function myApplyClustering() {
+        function myClusterStudentNodes() {
             if (!myNetwork || !myGlobalNodes) return;
             
-            // Check if clusters already exist to avoid double-clustering
-            if (myNetwork.getClusteredNodeIds().some(myId => myId.startsWith('cluster_student_'))) {
-                 // Contraction logic: re-render the view which implicitly contracts clusters not in the visible ID list
-                 myLoadView(myCurrentView);
+            // Do not re-cluster if clusters already exist
+            if (myNetwork.getClusteredNodeIds().length > 0) {
+                 console.log("Clustering skipped: Clusters already exist.");
                  return;
             }
 
@@ -398,11 +397,10 @@
                     },
                     clusterNodeProperties: {
                         id: `cluster_student_${myLocation}`,
-                        label: `Students in ${myLocation}`,
-                        title: `Click to view ${myLocation} students.`,
+                        label: `Students in ${myLocation} (Double-Click to Expand)`,
+                        title: `Double-click to view ${myLocation} students.`,
                         group: 'StudentCluster', 
-                        shape: 'database',
-                        font: { size: 16, color: 'white', face: 'Inter' }
+                        font: { color: 'white', size: 16 }
                     }
                 };
                 
@@ -410,12 +408,31 @@
                 const myVisibleNodes = myNetwork.body.data.nodes.getIds();
                 const myNodesToCluster = myVisibleNodes.filter(myId => myGlobalNodes.get(myId)?.location === myLocation);
                 
-                if(myNodesToCluster.length > 0) {
+                if(myNodesToCluster.length > 1) { // Only cluster groups with 2 or more students
                      myNetwork.cluster(myClusterOptions);
                 }
             });
             
             console.log("Interactive Student Clustering Applied.");
+        }
+        
+        /**
+         * @function myUnclusterAllNodes
+         * @description Opens (expands) all existing cluster nodes in the network.
+         */
+        function myUnclusterAllNodes() {
+            if (!myNetwork) return;
+
+            const myClusteredIds = myNetwork.getClusteredNodeIds();
+            if (myClusteredIds.length === 0) return;
+
+            myClusteredIds.forEach(myClusterId => {
+                // IMPORTANT: Use openCluster to release the nodes back to the network
+                myNetwork.openCluster(myClusterId);
+            });
+            
+            console.log("All clusters expanded/removed.");
+            document.getElementById('myNodeDetails').innerHTML = `<p class="font-bold text-red-600">ALL CLUSTERS CONTRACTED</p><p>The view has been expanded to show individual student nodes again.</p>`;
         }
 
 
@@ -443,17 +460,18 @@
             const myGraphData = { nodes: myNodesView, edges: myEdgesView };
 
             const myOptions = {
-                // FIX: Disable physics after the initial layout to prevent the entire view from moving on drag.
-                physics: { enabled: false }, 
-                layout: {
-                    hierarchical: {
-                        enabled: true,
-                        direction: 'UD', 
-                        sortMethod: 'directed',
-                        levelSeparation: 150,
-                        nodeSpacing: 120,
+                // CHANGE: Use physics for initial, fluid layout
+                physics: { 
+                    enabled: true,
+                    solver: 'repulsion', 
+                    randomSeed: 42, // Consistent layout on initial load
+                    stabilization: {
+                        iterations: 1500, 
+                        fit: true,
+                        updateInterval: 25
                     }
-                },
+                }, 
+                
                 // Use the global options object for groups
                 groups: myDefaultNodeOptions,
                 interaction: {
@@ -468,49 +486,46 @@
 
             myNetwork = new vis.Network(myContainer, myGraphData, myOptions);
 
+            // --- Stabilization Handler: Disable physics after initial layout is complete ---
+            myNetwork.once('stabilized', () => {
+                myNetwork.setOptions({
+                    physics: { enabled: false }
+                });
+                console.log("Physics disabled after initial layout stabilization.");
+            });
+
             // --- Interactive Click Handler ---
             myNetwork.on('click', (myProperties) => {
                 const myNodeDetails = document.getElementById('myNodeDetails');
                 const myClickedNodeId = myProperties.nodes[0];
 
                 if (myClickedNodeId) {
-                    if (myNetwork.isCluster(myClickedNodeId)) {
-                        myNetwork.openCluster(myClickedNodeId); 
-                        myNodeDetails.innerHTML = `<p class="font-bold text-blue-600">CLUSTER EXPANDED</p><p>Individual students are now visible. Click a student node for details.</p>`;
-                        return; 
-                    }
-                    
                     // Fetch from global data set to ensure we get latest properties
                     const myNode = myGlobalNodes.get(myClickedNodeId);
-                    const myGroupConfig = myDefaultNodeOptions[myNode.group] || {};
+                    // Handle clusters on double click only, but still show info on single click
+                    
+                    const myGroup = myNode.group || (myNetwork.isCluster(myClickedNodeId) ? 'StudentCluster' : 'Unknown');
+                    const myGroupConfig = myDefaultNodeOptions[myGroup] || {};
                     const myGroupColor = myGroupConfig.color ? myGroupConfig.color.background : '#333';
 
                     let myDetailsHtml = `
                         <p><strong>Name/Title:</strong> ${myNode.label}</p>
-                        <p><strong>Role:</strong> <span class="text-xs font-mono px-2 py-1 rounded-full text-white" style="background-color: ${myGroupColor}">${myNode.group}</span></p>
-                        <p><strong>Description:</strong> ${myNode.title}</p>
+                        <p><strong>Role:</strong> <span class="text-xs font-mono px-2 py-1 rounded-full text-white" style="background-color: ${myGroupColor}">${myGroup}</span></p>
+                        <p><strong>Description:</strong> ${myNode.title || 'N/A'}</p>
                     `;
                     
                     if (myNode.chaptersFinished !== undefined) {
                         
                         if (myNode.group === 'Audit') {
-                            myDetailsHtml += `
-                                <hr class="my-2 border-dashed">
-                                <p class="font-bold text-purple-600">MLSYSBOOK.AI AUDIT STATUS</p>
-                                <p>Progress tracking is not available for Audit participants in this view.</p>
-                            `;
+                            myDetailsHtml += `<hr class="my-2 border-dashed"><p class="font-bold text-purple-600">MLSYSBOOK.AI AUDIT STATUS</p><p>Progress tracking is not available for Audit participants in this view.</p>`;
                         } else {
-                            myDetailsHtml += `
-                                <hr class="my-2 border-dashed">
-                                <p class="font-bold text-indigo-600">MLSYSBOOK.AI PROGRESS</p>
-                                <p><strong>Chapters Finished:</strong> <span class="font-semibold text-indigo-700">${myNode.chaptersFinished} / 12</span></p>
-                            `;
+                            myDetailsHtml += `<hr class="my-2 border-dashed"><p class="font-bold text-indigo-600">MLSYSBOOK.AI PROGRESS</p><p><strong>Chapters Finished:</strong> <span class="font-semibold text-indigo-700">${myNode.chaptersFinished} / 12</span></p>`;
                         }
                     }
 
                     myNodeDetails.innerHTML = myDetailsHtml;
                 } else {
-                    myNodeDetails.innerHTML = "Click on a node for details, double-click a node or edge to edit. You can also **drag nodes** to save their positions globally.";
+                    myNodeDetails.innerHTML = "Click on a node for details. **Double-click** a node or edge to edit, or double-click the background to collapse clusters.";
                 }
             });
 
@@ -546,31 +561,30 @@
                 }
             });
 
-            // --- Double-Click Handler for Contraction AND Editing (MODIFIED) ---
+            // --- Double-Click Handler for Cluster Toggle and Editing (MODIFIED FOR CLUSTERING) ---
             myNetwork.on('doubleClick', (myProperties) => {
                 const myClickedNodeId = myProperties.nodes[0];
                 const myClickedEdgeId = myProperties.edges[0];
 
                 if (myClickedNodeId) {
-                    // 1. If a node is double-clicked, check for cluster contraction or open editor
+                    // 1. If a CLUSTER node is double-clicked, OPEN it (expand)
                     if (myNetwork.isCluster(myClickedNodeId)) {
-                        myApplyClustering(); // Contract all clusters
-                        document.getElementById('myNodeDetails').innerHTML = `<p class="font-bold text-red-600">ALL CLUSTERS CONTRACTED</p><p>The view has been simplified again.</p>`;
+                        myNetwork.openCluster(myClickedNodeId);
+                        document.getElementById('myNodeDetails').innerHTML = `<p class="font-bold text-blue-600">CLUSTER EXPANDED</p><p>Individual nodes from the cluster are now visible. You can edit them now.</p>`;
                     } else {
-                        // Open editor for regular node
+                        // 2. Open editor for regular node
                         const myNode = myGlobalNodes.get(myClickedNodeId);
                         myOpenEditor(myNode, 'node');
                     }
                 } else if (myClickedEdgeId) {
-                    // 2. If an edge is double-clicked, open the editor
+                    // 3. If an edge is double-clicked, open the editor
                     const myEdge = myGlobalEdges.get(myClickedEdgeId);
                     myOpenEditor(myEdge, 'edge');
 
                 } else if (myProperties.nodes.length === 0 && myProperties.edges.length === 0) {
-                    // 3. If background is double-clicked, contract clusters
+                    // 4. If background is double-clicked, CONTRACT all clusters
                     if (myNetwork.getClusteredNodeIds().length > 0) {
-                        myApplyClustering(); 
-                        document.getElementById('myNodeDetails').innerHTML = `<p class="font-bold text-red-600">ALL CLUSTERS CONTRACTED</p><p>The view has been simplified again.</p>`;
+                        myUnclusterAllNodes(); // Call the new contraction function
                     }
                 }
             });
@@ -849,6 +863,7 @@
                     myVisibleIds = myBaseData;
                     break;
                 case 'ClusteredStudent':
+                    // Need to include all student groups and their connected nodes
                     myBaseData = await myGetRelevantNeighbors(['Professor', 'Student', 'Project', 'Publication', 'Industry', 'Hardware']);
                     myVisibleIds = myBaseData;
                     break;
@@ -862,10 +877,13 @@
                 myNetwork = await myRenderNetwork('myNetworkContainer', myVisibleIds, myViewName);
 
                 if (myViewName === 'ClusteredStudent') {
-                    myApplyClustering();
+                    // Apply clustering AFTER the network has been rendered
+                    myClusterStudentNodes();
+                    myNodeDetailsElement.innerText = `Loaded ${myViewName} View. Student nodes are clustered by location. Double-click a cluster to expand.`;
+                } else {
+                    myNodeDetailsElement.innerText = `Loaded ${myViewName} View. Physics is now disabled. Drag nodes freely to save their positions globally.`;
                 }
 
-                myNodeDetailsElement.innerText = `Loaded ${myViewName} View. Click a node for details, double-click a node or edge to edit. You can also **drag nodes** to save their positions globally.`;
             } else {
                  myNodeDetailsElement.innerHTML = `<p class="text-red-600 font-bold">Error loading view: ${myViewName}.</p>`;
             }
@@ -873,7 +891,7 @@
 
         // --- Initial Load and Data Initialization ---
 
-        window.onload = () => {
+        window.onload = function () {
             // 1. Initialize global DataSets once (Single Source of Truth)
             const myProcessedEdges = myMasterDagData.edges.map((myEdge, myIndex) => {
                 // Ensure every edge has a unique ID for dataset management
