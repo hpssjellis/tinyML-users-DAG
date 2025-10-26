@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tinyML4D Ecosystem DAG Viewer</title>
+    <!-- Load Tailwind CSS for simple, modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#4CAF50', // Green for tinyML4D
+                        'secondary': '#FF9800', // Orange for contrast
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Load vis-network (Community Edition) for Graph Visualization -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <style>
+        /* CSS for Resizable Container */
+        #myNetworkContainer {
+            /* Enable vertical and horizontal resizing */
+            resize: both;
+            overflow: auto; 
+            min-height: 300px; 
+            width: 100%;
+            height: 600px; 
+            border-radius: 0.5rem;
+            border: 2px solid #ccc;
+        }
+        
+        .my-button-style:hover {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-4 sm:p-8 font-sans">
+
+    <!-- Global Canvas Environment Variables Setup (Mandatory) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db, auth;
+
+        // Simplified Initialization for visualization (Firestore not used for storage)
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            // Sign in process
+            if (initialAuthToken) {
+                signInWithCustomToken(auth, initialAuthToken).catch(myError => console.error("Custom token sign-in failed:", myError));
+            } else {
+                signInAnonymously(auth).catch(myError => console.error("Anonymous sign-in failed:", myError));
+            }
+        }
+        // Exposing global variables for potential future use (though not needed for this visualization)
+        window.myAppId = appId;
+    </script>
+
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-primary">tinyML4D Ecosystem DAG</h1>
+            <p class="text-gray-600 mt-1">Interactive visualization of different stakeholder perspectives <span class="font-semibold text-gray-500">(Directed Acyclic Graph)</span>.</p>
+        </header>
+
+        <!-- View Selector Buttons -->
+        <div id="myViewSelectors" class="flex flex-wrap justify-center gap-3 mb-8">
+            <button onclick="myLoadView('All')" class="my-button-style bg-primary hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                All Nodes
+            </button>
+            <button onclick="myLoadView('Professor')" class="my-button-style bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Professor View
+            </button>
+            <button onclick="myLoadView('Industry')" class="my-button-style bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Industry View
+            </button>
+            <button onclick="myLoadView('OpenSource')" class="my-button-style bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Open Source View
+            </button>
+            <button onclick="myLoadView('Funding')" class="my-button-style bg-yellow-500 hover:bg-yellow-600 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Funding View
+            </button>
+            <button onclick="myLoadView('MLSysBook')" class="my-button-style bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                MLSysBook View
+            </button>
+             <button onclick="myClearStorageAndReset()" class="my-button-style bg-red-500 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Reset Views
+            </button>
+        </div>
+
+        <!-- Visualization Container -->
+        <div id="myNetworkContainer" class="shadow-lg bg-white"></div>
+        
+        <!-- Info Panel for Interactivity -->
+        <div id="myInfoPanel" class="mt-6 p-4 bg-white rounded-lg shadow-md border-l-4 border-primary">
+            <h3 class="text-xl font-semibold text-gray-800">Node Information</h3>
+            <p id="myNodeDetails" class="text-gray-600 mt-2">Click on a node in the graph to see its details here.</p>
+        </div>
+    </div>
+
+    <script>
+        // Global variable to hold the currently active view name for detail filtering
+        let myCurrentView = 'All';
+
+        // --- Core Rendering Function ---
+
+        /**
+         * @function myRenderNetwork
+         * @description Initializes and renders the vis-network graph in a specified container.
+         * @param {string} myContainerId The ID of the HTML element to draw the network in.
+         * @param {object} myData The data object containing nodes and edges arrays.
+         * @param {string} myCurrentViewName The name of the view currently active (for detail filtering).
+         * @returns {void}
+         */
+        async function myRenderNetwork(myContainerId, myData, myCurrentViewName) {
+            const myContainer = document.getElementById(myContainerId);
+            // Clear previous graph
+            myContainer.innerHTML = '';
+
+            // Use DataSet objects for better dynamic handling
+            const myNodes = new vis.DataSet(myData.nodes);
+            const myEdges = new vis.DataSet(myData.edges);
+            
+            const myGraphData = { nodes: myNodes, edges: myEdges };
+
+            // Configuration options for the DAG layout and node styling
+            const myOptions = {
+                // Disabling physics simulation for static, hierarchical layout
+                physics: { enabled: false }, 
+                layout: {
+                    hierarchical: {
+                        enabled: true,
+                        direction: 'UD', // Up-Down flow (DAG)
+                        sortMethod: 'directed',
+                        levelSeparation: 150,
+                        nodeSpacing: 120,
+                    }
+                },
+                groups: {
+                    // Shapes updated to 'box' or 'square' to ensure labels are inside
+                    Professor: { color: { background: '#2196F3', border: '#1565C0' }, shape: 'box', font: { color: 'white' } }, // Blue (Box)
+                    Industry: { color: { background: '#FF9800', border: '#E65100' }, shape: 'box', font: { color: 'white' } }, // Orange (Box)
+                    OpenSource: { color: { background: '#9C27B0', border: '#4A148C' }, shape: 'box', font: { color: 'white' } }, // Purple (Box)
+                    Funding: { color: { background: '#FFEB3B', border: '#FBC02D' }, shape: 'box', font: { color: 'black' } }, // Yellow (Box)
+                    Project: { color: { background: '#4CAF50', border: '#2E7D32' }, shape: 'square', font: { color: 'white' } }, // Green (Square)
+                    Student: { color: { background: '#795548', border: '#3E2723' }, shape: 'ellipse', font: { color: 'white' } }, // Brown (Ellipse for distinction)
+                    Hardware: { color: { background: '#607D8B', border: '#37474F' }, shape: 'square', font: { color: 'white' } }, // Gray (Square)
+                    Publication: { color: { background: '#00BCD4', border: '#00838F' }, shape: 'text', font: { color: 'black' } }, // Cyan (Text)
+                    Educator: { color: { background: '#00BFA5', border: '#00796B' }, shape: 'square', font: { color: 'white' } }, // Teal (Square)
+                    Maker: { color: { background: '#E91E63', border: '#C2185B' }, shape: 'square', font: { color: 'white' } }, // Pink (Square)
+                    Business: { color: { background: '#D32F2F', border: '#B71C1C' }, shape: 'box', font: { color: 'white' } }, // Dark Red (Box)
+                },
+                // Add click event handling
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 100,
+                }
+            };
+
+            const myNetwork = new vis.Network(myContainer, myGraphData, myOptions);
+
+            // Add simple event listener (as per user preference, using network.on)
+            myNetwork.on('click', (myProperties) => {
+                const myNodeDetails = document.getElementById('myNodeDetails');
+                const myClickedNodeId = myProperties.nodes[0]; // Get the ID of the clicked node
+
+                if (myClickedNodeId) {
+                    // Need to look up the node data from the DataSet
+                    const myNode = myNodes.get(myClickedNodeId);
+                    const myGroupConfig = myOptions.groups[myNode.group] || {};
+                    const myGroupColor = myGroupConfig.color ? myGroupConfig.color.background : '#333';
+
+                    // Base details visible to all
+                    let myDetailsHtml = `
+                        <p><strong>Name/Title:</strong> ${myNode.label}</p>
+                        <p><strong>Role:</strong> <span class="text-xs font-mono px-2 py-1 rounded-full text-white" style="background-color: ${myGroupColor}">${myNode.group}</span></p>
+                        <p><strong>Description:</strong> ${myNode.title}</p>
+                    `;
+                    
+                    // --- Differentiated Data View Logic ---
+                    if ((myCurrentViewName === 'Professor' || myCurrentViewName === 'All') && myNode.group === 'Student' && myNode.details) {
+                        // Professor View sees student performance/academic data
+                        myDetailsHtml += `
+                            <hr class="my-2 border-dashed">
+                            <p class="font-bold text-blue-600">ACADEMIC DETAILS (${myCurrentViewName} View)</p>
+                            <p><strong>GPA:</strong> <span class="font-semibold text-green-700">${myNode.details.GPA}</span></p>
+                            <p><strong>Thesis Progress:</strong> ${myNode.details.Progress}</p>
+                            <p><strong>Thesis Topic:</strong> ${myNode.details.Thesis}</p>
+                        `;
+                    }
+                    
+                    // --- New MLSysBook Progress View Logic ---
+                    if ((myCurrentViewName === 'MLSysBook' || myCurrentViewName === 'All') && myNode.chaptersFinished !== undefined) {
+                        myDetailsHtml += `
+                            <hr class="my-2 border-dashed">
+                            <p class="font-bold text-indigo-600">MLSYSBOOK.AI PROGRESS (${myCurrentViewName} View)</p>
+                            <p><strong>Chapters Finished:</strong> <span class="font-semibold text-indigo-700">${myNode.chaptersFinished} / 12</span></p>
+                        `;
+                    }
+                    
+                    myNodeDetails.innerHTML = myDetailsHtml;
+                } else {
+                    myNodeDetails.innerHTML = "Click on a node in the graph to see its details here.";
+                }
+            });
+            
+            // Save the current view name to local storage (for UI persistence)
+            mySaveCurrentViewName(myCurrentViewName);
+        }
+
+
+        // --- Local Storage Functions (Only for UI State) ---
+
+        /**
+         * @function mySaveCurrentViewName
+         * @description Saves the currently active view name to local storage.
+         * @param {string} myViewName The key under which to save the data.
+         */
+        function mySaveCurrentViewName(myViewName) {
+            try {
+                localStorage.setItem('dagLastView', myViewName);
+            } catch (myError) {
+                console.error("Error saving view name to local storage:", myError);
+            }
+        }
+
+        /**
+         * @function myClearStorageAndReset
+         * @description Clears the last view key and reloads the default 'All' view.
+         */
+        function myClearStorageAndReset() {
+            try {
+                localStorage.removeItem('dagLastView');
+                console.log("Local storage cleared. Reloading All Nodes view.");
+                myLoadView('All');
+            } catch (myError) {
+                console.error("Error resetting local storage:", myError);
+            }
+        }
+
+
+        // --- View Loading Functions ---
+
+        /**
+         * @function myLoadView
+         * @description Fetches the required graph data from the API and renders the network.
+         * @param {string} myViewName The name of the view to load ('All', 'Professor', etc.).
+         * @returns {void}
+         */
+        async function myLoadView(myViewName) {
+            myCurrentView = myViewName; // Update global state
+            
+            const myNodeDetailsElement = document.getElementById('myNodeDetails');
+            myNodeDetailsElement.innerText = `Loading ${myViewName} View... Please wait.`;
+
+            try {
+                // Fetch data from the new server API endpoint
+                const myApiUrl = `/api/view/${myViewName}`;
+                const myResponse = await fetch(myApiUrl);
+                
+                if (!myResponse.ok) {
+                    throw new Error(`HTTP error! status: ${myResponse.status}`);
+                }
+                
+                const myDataToRender = await myResponse.json();
+
+                // Render the fetched data
+                await myRenderNetwork('myNetworkContainer', myDataToRender, myViewName);
+                myNodeDetailsElement.innerText = `Loaded ${myViewName} View. Click a node for details.`;
+
+            } catch (myError) {
+                console.error("Error loading view data from API:", myError);
+                myNodeDetailsElement.innerHTML = `<p class="text-red-600 font-bold">Error loading view: ${myViewName}. Please check the server console for details.</p>`;
+            }
+        }
+
+        // --- Initial Load ---
+
+        window.onload = () => {
+            // Load the last view the user was on, or default to 'All'
+            const myLastView = localStorage.getItem('dagLastView') || 'All';
+            myLoadView(myLastView); 
+        };
+    </script>
+</body>
+</html>
