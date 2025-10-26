@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tinyML4D Ecosystem DAG Viewer (Interactive Clustering)</title>
+    <!-- Load Tailwind CSS for simple, modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#4CAF50', // Green for tinyML4D
+                        'secondary': '#FF9800', // Orange for contrast
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Load vis-network (Community Edition) for Graph Visualization -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <style>
+        /* CSS for Resizable Container */
+        #myNetworkContainer {
+            /* Enable vertical and horizontal resizing */
+            resize: both;
+            overflow: auto; 
+            min-height: 300px; 
+            width: 100%;
+            height: 450px; 
+            border-radius: 0.5rem;
+            border: 2px solid #ccc;
+        }
+        
+        .my-button-style:hover {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-4 sm:p-8 font-sans">
+
+    <!-- Global Canvas Environment Variables Setup (Mandatory) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas environment
+        const myAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const myFirebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const myInitialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let myDb, myAuth;
+
+        if (myFirebaseConfig) {
+            const myApp = initializeApp(myFirebaseConfig);
+            myDb = getFirestore(myApp);
+            myAuth = getAuth(myApp);
+            
+            if (myInitialAuthToken) {
+                signInWithCustomToken(myAuth, myInitialAuthToken).catch(myError => console.error("Custom token sign-in failed:", myError));
+            } else {
+                signInAnonymously(myAuth).catch(myError => console.error("Anonymous sign-in failed:", myError));
+            }
+        }
+    </script>
+
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-primary">tinyML4D Ecosystem DAG (Interactive Clustering)</h1>
+            <p class="text-gray-600 mt-1">Click a Cluster node to expand. Double-click the background to contract all.</p>
+        </header>
+
+        <!-- View Selector Buttons -->
+        <div id="myViewSelectors" class="flex flex-wrap justify-center gap-3 mb-8">
+            <button onclick="myLoadView('All')" class="my-button-style bg-primary hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                All Nodes
+            </button>
+            <button onclick="myLoadView('Professor')" class="my-button-style bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Professor View
+            </button>
+            <button onclick="myLoadView('ClusteredStudent')" class="my-button-style bg-blue-800 hover:bg-blue-900 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Clustered Student View (Demo)
+            </button>
+            <button onclick="myLoadView('MLSysBook')" class="my-button-style bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                MLSysBook View
+            </button>
+            
+            <button onclick="myLoadView('Industry')" class="my-button-style bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Industry View
+            </button>
+            <button onclick="myLoadView('OpenSource')" class="my-button-style bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Open Source View
+            </button>
+            <button onclick="myLoadView('Funding')" class="my-button-style bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Funding View
+            </button>
+            
+            <button onclick="myLoadView('Discord')" class="my-button-style bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Discord View
+            </button>
+            <button onclick="myLoadView('LinkedIn')" class="my-button-style bg-cyan-700 hover:bg-cyan-800 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                LinkedIn View
+            </button>
+            <button onclick="myLoadView('GitHub')" class="my-button-style bg-gray-900 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                GitHub View (Dev Focus)
+            </button>
+            <button onclick="myLoadView('Admin')" class="my-button-style bg-red-700 hover:bg-red-800 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Admin View (Weighted)
+            </button>
+            
+             <button onclick="myClearStorageAndReset()" class="my-button-style bg-gray-500 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Reset Views
+            </button>
+        </div>
+
+        <!-- Visualization Container -->
+        <div id="myNetworkContainer" class="shadow-lg bg-white"></div>
+        
+        <!-- Info Panel for Interactivity -->
+        <div id="myInfoPanel" class="mt-6 p-4 bg-white rounded-lg shadow-md border-l-4 border-primary">
+            <h3 class="text-xl font-semibold text-gray-800">Node Information</h3>
+            <p id="myNodeDetails" class="text-gray-600 mt-2">Click on a node for details, **double-click** a node or edge to edit.</p>
+        </div>
+    </div>
+
+    <!-- --- POPUP EDITOR MODAL (NEW) --- -->
+    <div id="myEditorModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50 transition-opacity duration-300" style="display: none;">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto transform scale-100 transition-transform duration-300">
+            <div class="p-6">
+                <h2 id="myEditorTitle" class="text-2xl font-bold text-gray-800 border-b pb-2 mb-4">Edit Item</h2>
+                <form id="myEditorForm" onsubmit="mySaveChanges(event)">
+                    <!-- Dynamic fields will be appended here -->
+                    <div id="myEditorFields" class="space-y-3">
+                        <!-- Inputs will be injected by JavaScript -->
+                    </div>
+                    <input type="hidden" id="myEditorItemId" name="id">
+                    <input type="hidden" id="myEditorItemType" name="type">
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button type="button" onclick="myCloseEditor()" class="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition">
+                            Close
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-green-700 transition">
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- -------------------------------- -->
+
+    <script>
+        let myCurrentView = 'All';
+        let myNetwork = null;
+        let myGlobalNodes = null; // Single Source of Truth for ALL nodes
+        let myGlobalEdges = null; // Single Source of Truth for ALL edges
+        let myDefaultNodeOptions = {}; // To store default options for color lookup
+
+        // --- STATIC DATA FOR DEMO ---
+        const myMasterDagData = {
+            nodes: [
+                { id: 'P1', label: 'Dr. Anita Sharma', group: 'Professor', title: 'Specializes in Efficient ML', chaptersFinished: 12 },
+                { id: 'P2', label: 'Dr. Jane Doe', group: 'Professor', title: 'Interested in Industry Collaboration', chaptersFinished: 10 },
+                
+                // Student Nodes
+                { id: 'S1', label: 'Student: Maria R.', group: 'Student', location: 'London', title: 'Researching pruning algorithms', details: { GPA: 3.8, Progress: '90%', Thesis: 'Pruning Algorithms for Edge Devices' }, chaptersFinished: 8 },
+                { id: 'S2', label: 'Student: Ben K.', group: 'Student', location: 'Lagos', title: 'Developing OS1 integration', details: { GPA: 3.1, Progress: '65%', Thesis: 'OS Integration on ARM M0' }, chaptersFinished: 5 },
+                { id: 'S3', label: 'Student: Kai L.', group: 'Student', location: 'London', title: 'Focus on Industry-ready prototypes', details: { GPA: 3.9, Progress: '95%', Thesis: 'Industry-Scale tinyML Prototyping' }, chaptersFinished: 9 },
+                { id: 'S4', label: 'Student: Zoe V.', group: 'Student', location: 'Lima', title: 'Edge sensor network deployment', chaptersFinished: 7 },
+                { id: 'S5', label: 'Student: Alex J.', group: 'Student', location: 'Lagos', title: 'Model quantization research', chaptersFinished: 10 },
+                { id: 'S6', label: 'Student: Eli F.', group: 'Student', location: 'London', title: 'Low-latency deployment strategy', chaptersFinished: 11 }, 
+                
+                // Other Entities
+                { id: 'I1', label: 'Ecom Electronics', group: 'Industry', title: 'Sponsor of the Edge AI Project' },
+                { id: 'OS1', label: 'TinyMLx Library', group: 'OpenSource', title: 'Key tinyML toolkit, MIT License' },
+                { id: 'PrA', label: 'Edge AI Project', group: 'Project', title: 'Focus: Low-power CV on microcontrollers' },
+                { id: 'PrB', label: 'Model Compression Paper', group: 'Publication', title: 'Published in ICCV 2025' },
+                { id: 'H1', label: 'ARM M0 Module', group: 'Hardware', title: 'Target deployment hardware' },
+                { id: 'E1', label: 'Maker Workshop', group: 'Educator', title: 'Teaches practical tinyML implementation', chaptersFinished: 12 },
+                { id: 'A1', label: 'Audit: Observer 1', group: 'Audit', title: 'Reads content without formal enrollment.' },
+                { id: 'F1', label: 'Green Tech Fund', group: 'Funding', title: 'Focus on sustainable technology' },
+                
+                // Social Entities
+                { id: 'D1', label: 'Discord Server', group: 'Discord', title: 'Community Support Channel' },
+                { id: 'L1', label: 'LinkedIn Group', group: 'LinkedIn', title: 'Professional Networking & Recruiting' },
+
+                // ADMIN NODE
+                { id: 'Ad1', label: 'System Admin: Chris B.', group: 'Admin', title: 'Manages Industry & Faculty Relations' },
+            ],
+            edges: [
+                // Professor P1 (Anita) links
+                { from: 'P1', to: 'S1', label: 'Supervises', arrows: 'to' },
+                { from: 'P1', to: 'S2', label: 'Supervises', myWeight: 0.40, title: 'Needs Development/Support (0.40)', arrows: 'to' }, 
+                { from: 'P1', to: 'PrA', label: 'Leads', arrows: 'to' },
+                { from: 'P1', to: 'S6', label: 'Supervises', arrows: 'to' }, 
+                { from: 'S1', to: 'PrB', label: 'Contributed to', arrows: 'to' }, 
+                // Professor P2 (Jane) links
+                { from: 'P2', to: 'S3', label: 'Supervises', myWeight: 0.95, title: 'High Ability/Connectedness (0.95)', arrows: 'to' }, 
+                { from: 'P2', to: 'S4', label: 'Supervises', arrows: 'to' }, 
+                { from: 'P2', to: 'S5', label: 'Supervises', arrows: 'to' }, 
+                { from: 'P2', to: 'I1', label: 'Collaborates with', arrows: 'to' },
+                // Project links
+                { from: 'PrA', to: 'OS1', label: 'Uses Toolkit', arrows: 'to' },
+                { from: 'S3', to: 'I1', label: 'Prototypes for', arrows: 'to' }, 
+                { from: 'S2', to: 'OS1', label: 'Maintains', arrows: 'to' }, 
+                { from: 'S4', to: 'H1', label: 'Tests on', arrows: 'to' }, 
+                // Funding/Education
+                { from: 'F1', to: 'PrA', label: 'Grants', arrows: 'to' },
+                { from: 'E1', to: 'S5', label: 'Teaches', arrows: 'to' }, 
+                { from: 'E1', to: 'A1', label: 'Provides material to', arrows: 'to' },
+                
+                // Social Links
+                { from: 'E1', to: 'D1', label: 'Manages Community', arrows: 'to' }, 
+                { from: 'S2', to: 'D1', label: 'Active Member', arrows: 'to' }, 
+                { from: 'OS1', to: 'D1', label: 'Provides Support on', arrows: 'to' }, 
+                { from: 'P2', to: 'L1', label: 'Moderates Group', arrows: 'to' }, 
+                { from: 'I1', to: 'L1', label: 'Recruits from', arrows: 'to' }, 
+                { from: 'F1', to: 'L1', label: 'Promotes Opportunities on', arrows: 'to' },
+
+                // ADMIN WEIGHTED CONNECTIONS
+                { from: 'Ad1', to: 'P1', label: 'Collaboration', myWeight: 1.0, title: 'Positive Conference Interaction (1.0)', arrows: 'to' }, 
+                { from: 'Ad1', to: 'I1', label: 'Recruiting Relationship', myWeight: 0.85, title: 'Formal Industry Partnership (0.85)', arrows: 'to' }, 
+                { from: 'Ad1', to: 'S3', label: 'Mentoring', myWeight: 0.55, title: 'Frequent Online Check-ins (0.55)', arrows: 'to' }, 
+                { from: 'Ad1', to: 'F1', label: 'Funding Pipeline', myWeight: 0.90, title: 'Secured Annual Funding (0.90)', arrows: 'to' }, 
+                { from: 'Ad1', to: 'D1', label: 'Community Oversight', myWeight: 0.20, title: 'Occasional Check-ins (0.20)', arrows: 'to' } 
+            ]
+        };
+        
+        // Configuration for Network groups (re-used in logic)
+        myDefaultNodeOptions = {
+            Professor: { color: { background: '#2196F3', border: '#1565C0' }, shape: 'box', font: { color: 'white' } }, 
+            Industry: { color: { background: '#FF9800', border: '#E65100' }, shape: 'box', font: { color: 'white' } }, 
+            OpenSource: { color: { background: '#9C27B0', border: '#4A148C' }, shape: 'box', font: { color: 'white' } }, 
+            Funding: { color: { background: '#FFEB3B', border: '#FBC02D' }, shape: 'box', font: { color: 'black' } }, 
+            Project: { color: { background: '#4CAF50', border: '#2E7D32' }, shape: 'square', font: { color: 'white' } }, 
+            Student: { color: { background: '#795548', border: '#3E2723' }, shape: 'ellipse', font: { color: 'white' } }, 
+            Hardware: { color: { background: '#607D8B', border: '#37474F' }, shape: 'square', font: { color: 'white' } }, 
+            Educator: { color: { background: '#00BFA5', border: '#00796B' }, shape: 'square', font: { color: 'white' } }, 
+            Audit: { color: { background: '#673AB7', border: '#512DA8' }, shape: 'dot', font: { color: 'white' } }, 
+            Discord: { color: { background: '#7289DA', border: '#4E5D94' }, shape: 'hexagon', font: { color: 'white' } }, 
+            LinkedIn: { color: { background: '#0A66C2', border: '#004182' }, shape: 'square', font: { color: 'white' } }, 
+            Admin: { color: { background: '#A00000', border: '#600000' }, shape: 'star', font: { color: 'white', size: 18 } }, 
+            StudentCluster: { color: { background: '#3F51B5', border: '#1A237E', highlight: '#5C6BC0' }, font: { color: 'white' } },
+        };
+
+
+        // --- Color Utility for Edge Weight ---
+
+        /**
+         * @function myWeightToColor
+         * @description Converts a float weight (0.0 to 1.0) to a dark green color string.
+         */
+        function myWeightToColor(myWeight) {
+            // Scale weight from a light green (75) to a dark green (255) intensity in the G channel
+            const myWeightIntensity = Math.floor(myWeight * 180) + 75; 
+            return { 
+                color: `rgb(0, ${myWeightIntensity}, 0)`, 
+                highlight: `rgb(0, ${myWeightIntensity + 30}, 0)`,
+                inherit: 'false',
+                opacity: 1
+            };
+        }
+        
+        /**
+         * @function myProcessEdgeForVisuals
+         * @description Updates an edge object's visualization properties based on its myWeight property.
+         */
+        function myProcessEdgeForVisuals(myEdge) {
+            const myNewEdge = { ...myEdge }; 
+            
+            if (myNewEdge.myWeight !== undefined) {
+                const myWeight = parseFloat(myNewEdge.myWeight);
+                
+                // 1. Update label to show the weight clearly
+                const myBaseLabel = myNewEdge.label.split(' (')[0];
+                myNewEdge.label = `${myBaseLabel} (${myWeight.toFixed(2)})`; 
+
+                // 2. Use weight to determine thickness (from 1 to 5)
+                myNewEdge.width = 1 + (myWeight * 4); 
+
+                // 3. Use weight to determine color 
+                myNewEdge.color = myWeightToColor(myWeight);
+                
+                if (!myNewEdge.arrows) myNewEdge.arrows = 'to';
+            }
+            return myNewEdge;
+        }
+
+        // --- VIS-NETWORK CLUSTERING FUNCTIONS ---
+
+        /**
+         * @function myApplyClustering
+         * @description Applies clustering logic to the network based on the Student's location.
+         */
+        function myApplyClustering() {
+            if (!myNetwork || !myGlobalNodes) return;
+            
+            // Check if clusters already exist to avoid double-clustering
+            if (myNetwork.getClusteredNodeIds().some(id => id.startsWith('cluster_student_'))) {
+                 // Contraction logic: re-render the view which implicitly contracts clusters not in the visible ID list
+                 myLoadView(myCurrentView);
+                 return;
+            }
+
+            const myLocations = ['London', 'Lagos', 'Lima']; // Locations to cluster by
+
+            myLocations.forEach((myLocation) => {
+                const myClusterOptions = {
+                    joinCondition: (nodeData) => {
+                        // Check against the global data set
+                        const myNode = myGlobalNodes.get(nodeData.id);
+                        return myNode && myNode.group === 'Student' && myNode.location === myLocation;
+                    },
+                    clusterNodeProperties: {
+                        id: `cluster_student_${myLocation}`,
+                        label: `Students in ${myLocation}`,
+                        title: `Click to view ${myLocation} students.`,
+                        group: 'StudentCluster', 
+                        shape: 'database',
+                        font: { size: 16, color: 'white', face: 'Inter' }
+                    }
+                };
+                
+                // Only cluster if nodes for this view are present
+                const myVisibleNodes = myNetwork.body.data.nodes.getIds();
+                const myNodesToCluster = myVisibleNodes.filter(id => myGlobalNodes.get(id)?.location === myLocation);
+                
+                if(myNodesToCluster.length > 0) {
+                     myNetwork.cluster(myClusterOptions);
+                }
+            });
+            
+            console.log("Interactive Student Clustering Applied.");
+        }
+
+
+        /**
+         * @function myRenderNetwork
+         * @description Initializes and renders the vis-network graph using a filtered DataView.
+         * @param {string} myContainerId The ID of the container element.
+         * @param {object} myVisibleIds Object containing arrays of nodeIds and edgeIds to display.
+         * @param {string} myCurrentViewName The name of the current view.
+         * @returns {vis.Network} The network instance.
+         */
+        async function myRenderNetwork(myContainerId, myVisibleIds, myCurrentViewName) {
+            const myContainer = document.getElementById(myContainerId);
+            myContainer.innerHTML = '';
+
+            // 1. Create DataViews filtered by the visible IDs (this is the key to persistence)
+            const myNodesView = new vis.DataView(myGlobalNodes, {
+                filter: (myNode) => myVisibleIds.nodeIds.includes(myNode.id)
+            });
+
+            const myEdgesView = new vis.DataView(myGlobalEdges, {
+                filter: (myEdge) => myVisibleIds.edgeIds.includes(myEdge.id)
+            });
+            
+            const myGraphData = { nodes: myNodesView, edges: myEdgesView };
+
+            const myOptions = {
+                physics: { enabled: false }, 
+                layout: {
+                    hierarchical: {
+                        enabled: true,
+                        direction: 'UD', 
+                        sortMethod: 'directed',
+                        levelSeparation: 150,
+                        nodeSpacing: 120,
+                    }
+                },
+                // Use the global options object for groups
+                groups: myDefaultNodeOptions,
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 100,
+                },
+                edges: {
+                    color: { inherit: true },
+                    smooth: { type: 'dynamic' }
+                }
+            };
+
+            myNetwork = new vis.Network(myContainer, myGraphData, myOptions);
+
+            // --- Interactive Click Handler ---
+            myNetwork.on('click', (myProperties) => {
+                const myNodeDetails = document.getElementById('myNodeDetails');
+                const myClickedNodeId = myProperties.nodes[0];
+
+                if (myClickedNodeId) {
+                    if (myNetwork.isCluster(myClickedNodeId)) {
+                        myNetwork.openCluster(myClickedNodeId); 
+                        myNodeDetails.innerHTML = `<p class="font-bold text-blue-600">CLUSTER EXPANDED</p><p>Individual students are now visible. Click a student node for details.</p>`;
+                        return; 
+                    }
+                    
+                    // Fetch from global data set to ensure we get latest properties
+                    const myNode = myGlobalNodes.get(myClickedNodeId);
+                    const myGroupConfig = myDefaultNodeOptions[myNode.group] || {};
+                    const myGroupColor = myGroupConfig.color ? myGroupConfig.color.background : '#333';
+
+                    let myDetailsHtml = `
+                        <p><strong>Name/Title:</strong> ${myNode.label}</p>
+                        <p><strong>Role:</strong> <span class="text-xs font-mono px-2 py-1 rounded-full text-white" style="background-color: ${myGroupColor}">${myNode.group}</span></p>
+                        <p><strong>Description:</strong> ${myNode.title}</p>
+                    `;
+                    
+                    if (myNode.chaptersFinished !== undefined) {
+                        
+                        if (myNode.group === 'Audit') {
+                            myDetailsHtml += `
+                                <hr class="my-2 border-dashed">
+                                <p class="font-bold text-purple-600">MLSYSBOOK.AI AUDIT STATUS</p>
+                                <p>Progress tracking is not available for Audit participants in this view.</p>
+                            `;
+                        } else {
+                            myDetailsHtml += `
+                                <hr class="my-2 border-dashed">
+                                <p class="font-bold text-indigo-600">MLSYSBOOK.AI PROGRESS</p>
+                                <p><strong>Chapters Finished:</strong> <span class="font-semibold text-indigo-700">${myNode.chaptersFinished} / 12</span></p>
+                            `;
+                        }
+                    }
+
+                    myNodeDetails.innerHTML = myDetailsHtml;
+                } else {
+                    myNodeDetails.innerHTML = "Click on a node for details, double-click a node or edge to edit.";
+                }
+            });
+
+            // --- Double-Click Handler for Contraction AND Editing (MODIFIED) ---
+            myNetwork.on('doubleClick', (myProperties) => {
+                const myClickedNodeId = myProperties.nodes[0];
+                const myClickedEdgeId = myProperties.edges[0];
+
+                if (myClickedNodeId) {
+                    // 1. If a node is double-clicked, check for cluster contraction or open editor
+                    if (myNetwork.isCluster(myClickedNodeId)) {
+                        myApplyClustering(); // Contract all clusters
+                        document.getElementById('myNodeDetails').innerHTML = `<p class="font-bold text-red-600">ALL CLUSTERS CONTRACTED</p><p>The view has been simplified again.</p>`;
+                    } else {
+                        // Open editor for regular node
+                        const myNode = myGlobalNodes.get(myClickedNodeId);
+                        myOpenEditor(myNode, 'node');
+                    }
+                } else if (myClickedEdgeId) {
+                    // 2. If an edge is double-clicked, open the editor
+                    const myEdge = myGlobalEdges.get(myClickedEdgeId);
+                    myOpenEditor(myEdge, 'edge');
+
+                } else if (myProperties.nodes.length === 0 && myProperties.edges.length === 0) {
+                    // 3. If background is double-clicked, contract clusters
+                    if (myNetwork.getClusteredNodeIds().length > 0) {
+                        myApplyClustering(); 
+                        document.getElementById('myNodeDetails').innerHTML = `<p class="font-bold text-red-600">ALL CLUSTERS CONTRACTED</p><p>The view has been simplified again.</p>`;
+                    }
+                }
+            });
+            
+            return myNetwork;
+        }
+
+
+        // --- EDITOR LOGIC ---
+
+        // List of properties we should skip in the editor as they are complex or system-managed
+        const mySkipKeys = ['id', 'from', 'to', 'x', 'y', 'details', 'color', 'font', 'group', 'width', 'arrows', 'title'];
+
+
+        /**
+         * @function myOpenEditor
+         * @description Populates and displays the modal editor for a given node or edge.
+         */
+        function myOpenEditor(myItem, myType) {
+            const myModal = document.getElementById('myEditorModal');
+            const myTitle = document.getElementById('myEditorTitle');
+            const myFieldsContainer = document.getElementById('myEditorFields');
+            const myItemIdInput = document.getElementById('myEditorItemId');
+            const myItemTypeInput = document.getElementById('myEditorItemType');
+
+            // Clear previous content
+            myFieldsContainer.innerHTML = '';
+            
+            // Set basic hidden properties
+            myItemIdInput.value = myItem.id;
+            myItemTypeInput.value = myType;
+            myTitle.textContent = `Edit ${myType.charAt(0).toUpperCase() + myType.slice(1)}: ${myItem.label || myItem.id}`;
+
+            // Build dynamic fields for all non-skipped properties
+            for (const myKey in myItem) {
+                if (mySkipKeys.includes(myKey)) continue;
+
+                const myValue = myItem[myKey];
+                let myInputHtml = '';
+
+                // Handle the special case for myWeight as a number input
+                if (myKey === 'myWeight') {
+                     myInputHtml = `
+                        <label class="block text-sm font-medium text-gray-700">${myKey} (0.0 to 1.0)</label>
+                        <input type="number" step="0.01" min="0" max="1" name="${myKey}" value="${myValue}"
+                               class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:border-primary focus:ring-primary p-2" required>
+                    `;
+                } else if (typeof myValue === 'number') {
+                    // Simple number
+                    myInputHtml = `
+                        <label class="block text-sm font-medium text-gray-700">${myKey}</label>
+                        <input type="number" name="${myKey}" value="${myValue}"
+                               class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:border-primary focus:ring-primary p-2">
+                    `;
+                } else if (typeof myValue === 'boolean') {
+                    // Simple checkbox
+                    myInputHtml = `
+                        <div class="flex items-center">
+                            <input type="checkbox" name="${myKey}" id="edit_${myKey}" ${myValue ? 'checked' : ''}
+                                class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
+                            <label for="edit_${myKey}" class="ml-2 block text-sm font-medium text-gray-700">${myKey}</label>
+                        </div>
+                    `;
+                } else if (typeof myValue === 'string') {
+                    // Simple text input (or label/title, etc.)
+                    myInputHtml = `
+                        <label class="block text-sm font-medium text-gray-700">${myKey}</label>
+                        <input type="text" name="${myKey}" value="${myValue}"
+                               class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:border-primary focus:ring-primary p-2">
+                    `;
+                }
+                
+                if (myInputHtml) {
+                    const myDiv = document.createElement('div');
+                    myDiv.innerHTML = myInputHtml; // Inject the HTML input field
+                    myFieldsContainer.appendChild(myDiv);
+                }
+            }
+            
+            myModal.style.display = 'flex'; // Show modal
+        }
+
+
+        /**
+         * @function mySaveChanges
+         * @description Reads values from the editor form and updates the Global DataSet.
+         */
+        function mySaveChanges(myEvent) {
+            myEvent.preventDefault();
+            
+            const myForm = myEvent.target;
+            const myItemId = myForm.elements['id'].value;
+            const myItemType = myForm.elements['type'].value;
+            
+            let myUpdatedItem = { id: myItemId };
+            const myDataSource = myItemType === 'node' ? myGlobalNodes : myGlobalEdges;
+            
+            const myOriginalItem = myDataSource.get(myItemId);
+            if (!myOriginalItem) return console.error("Item not found for editing.");
+
+            // 1. Process form data and determine types
+            for (let i = 0; i < myForm.elements.length; i++) {
+                const myElement = myForm.elements[i];
+                const myKey = myElement.name;
+                
+                if (!myKey || myKey === 'id' || myKey === 'type') continue;
+                
+                let myValue;
+                
+                // Get value based on input type (handle checkbox specially)
+                if (myElement.type === 'checkbox') {
+                    myValue = myElement.checked;
+                } else {
+                    myValue = myElement.value;
+                }
+                
+                // Attempt to cast value back to original type if property existed
+                if (myOriginalItem.hasOwnProperty(myKey)) {
+                    const originalType = typeof myOriginalItem[myKey];
+                    
+                    if (originalType === 'number') {
+                        myValue = parseFloat(myValue);
+                        if (isNaN(myValue)) myValue = myOriginalItem[myKey]; // Fallback
+                    } 
+                } else if (myElement.type === 'number') {
+                     // For newly added number properties, ensure they are cast correctly
+                     myValue = parseFloat(myValue);
+                     if (isNaN(myValue)) continue; // Skip if it's not a valid number
+                }
+
+                myUpdatedItem[myKey] = myValue;
+            }
+
+            // 2. Handle Edge Weight Visualization Refresh on the UPDATED object
+            if (myItemType === 'edge' && myUpdatedItem.myWeight !== undefined) {
+                // Apply visual properties to the updated item before saving
+                const myProcessedEdge = myProcessEdgeForVisuals(myUpdatedItem);
+                Object.assign(myUpdatedItem, myProcessedEdge);
+            }
+            
+            // 3. Update the Global DataSet (this automatically refreshes the network view via DataView)
+            myDataSource.update(myUpdatedItem);
+            console.log(`Updated ${myItemType} and persisted to global data set:`, myUpdatedItem);
+
+            myCloseEditor();
+            
+            document.getElementById('myNodeDetails').innerText = `Successfully updated item ID: ${myItemId}. The change is now global and will persist across views.`;
+        }
+
+
+        /**
+         * @function myCloseEditor
+         * @description Hides the modal editor.
+         */
+        function myCloseEditor() {
+            document.getElementById('myEditorModal').style.display = 'none';
+        }
+
+
+        /**
+         * @function myClearStorageAndReset
+         * @description Reloads the initial view.
+         */
+        function myClearStorageAndReset() {
+            console.log("Resetting views and reloading All Nodes view.");
+            myLoadView('All');
+        }
+
+
+        // --- Filtering Functions for Views ---
+
+        /**
+         * @function myGetRelevantNeighbors
+         * @description Filters node and edge IDs based on allowed groups.
+         * @returns {object} An object containing arrays of nodeIds and edgeIds to display.
+         */
+        async function myGetRelevantNeighbors(myAllowedGroups) {
+            // Get all nodes from the global dataset
+            const allNodes = myGlobalNodes.get();
+
+            // 1. Filter Node IDs
+            const myFilteredNodeIds = allNodes
+                .filter(myNode => myAllowedGroups.includes(myNode.group))
+                .map(myNode => myNode.id);
+
+            // 2. Filter Edge IDs
+            const myFilteredEdgeIds = myGlobalEdges.get()
+                .filter(myEdge => 
+                    myFilteredNodeIds.includes(myEdge.from) && myFilteredNodeIds.includes(myEdge.to)
+                )
+                .map(myEdge => myEdge.id);
+
+            return {
+                nodeIds: myFilteredNodeIds,
+                edgeIds: myFilteredEdgeIds,
+            };
+        }
+
+
+        // --- View Loading Functions ---
+
+        async function myLoadView(myViewName) {
+            let myVisibleIds = null;
+            myCurrentView = myViewName;
+            
+            const myNodeDetailsElement = document.getElementById('myNodeDetails');
+            myNodeDetailsElement.innerText = `Filtering and Loading ${myViewName} View... Please wait.`;
+
+            let myBaseData = {};
+
+            switch (myViewName) {
+                case 'All':
+                    // In 'All' view, display all IDs from the global datasets
+                    myVisibleIds = { 
+                        nodeIds: myGlobalNodes.getIds(), 
+                        edgeIds: myGlobalEdges.getIds() 
+                    };
+                    break;
+                case 'Professor':
+                    myBaseData = await myGetRelevantNeighbors(['Professor', 'Student', 'Project', 'Publication', 'Industry', 'Hardware']);
+                    myVisibleIds = myBaseData;
+                    break;
+                case 'MLSysBook':
+                    myBaseData = await myGetRelevantNeighbors(['Educator', 'Student', 'Audit', 'Project', 'Professor', 'Industry', 'Hardware']);
+                    myVisibleIds = myBaseData;
+                    break;
+                case 'Industry':
+                    myBaseData = await myGetRelevantNeighbors(['Industry', 'Professor', 'Student', 'Hardware', 'Project']);
+                    myVisibleIds = myBaseData;
+                    break;
+                case 'OpenSource':
+                    myBaseData = await myGetRelevantNeighbors(['OpenSource', 'Student', 'Professor', 'Project', 'Educator']);
+                    myVisibleIds = myBaseData;
+                    break;
+                case 'Funding':
+                    myBaseData = await myGetRelevantNeighbors(['Funding', 'Project', 'Professor']);
+                    myVisibleIds = myBaseData;
+                    break;
+                case 'Discord':
+                    myBaseData = await myGetRelevantNeighbors(['Student', 'Educator', 'OpenSource', 'Discord']);
+                    myVisibleIds = myBaseData;
+                    break;
+                case 'LinkedIn':
+                    myBaseData = await myGetRelevantNeighbors(['Professor', 'Industry', 'Publication', 'Funding', 'LinkedIn']);
+                    myVisibleIds = myBaseData;
+                    break;
+                case 'GitHub':
+                    myBaseData = await myGetRelevantNeighbors(['OpenSource', 'Student', 'Project', 'Hardware', 'Professor', 'Discord']);
+                    myVisibleIds = myBaseData;
+                    break;
+                case 'Admin':
+                    myBaseData = await myGetRelevantNeighbors(['Admin', 'Professor', 'Student', 'Industry', 'Funding', 'Project']);
+                    myVisibleIds = myBaseData;
+                    break;
+                case 'ClusteredStudent':
+                    myBaseData = await myGetRelevantNeighbors(['Professor', 'Student', 'Project', 'Publication', 'Industry', 'Hardware']);
+                    myVisibleIds = myBaseData;
+                    break;
+
+                default:
+                    myVisibleIds = { nodeIds: myGlobalNodes.getIds(), edgeIds: myGlobalEdges.getIds() };
+                    break;
+            }
+
+            if (myVisibleIds) {
+                myNetwork = await myRenderNetwork('myNetworkContainer', myVisibleIds, myViewName);
+
+                if (myViewName === 'ClusteredStudent') {
+                    myApplyClustering();
+                }
+
+                myNodeDetailsElement.innerText = `Loaded ${myViewName} View. Click a node for details, double-click a node or edge to edit.`;
+            } else {
+                 myNodeDetailsElement.innerHTML = `<p class="text-red-600 font-bold">Error loading view: ${myViewName}.</p>`;
+            }
+        }
+
+        // --- Initial Load and Data Initialization ---
+
+        window.onload = () => {
+            // 1. Initialize global DataSets once (Single Source of Truth)
+            const myProcessedEdges = myMasterDagData.edges.map((edge, index) => {
+                const myEdgeWithId = { ...edge, id: `e${edge.from}_${edge.to}_${index}` };
+                // Also apply initial weight processing
+                return myProcessEdgeForVisuals(myEdgeWithId); 
+            });
+
+            myGlobalNodes = new vis.DataSet(myMasterDagData.nodes);
+            myGlobalEdges = new vis.DataSet(myProcessedEdges); 
+            
+            // 2. Start with the 'All' view
+            myLoadView('All'); 
+        };
+    </script>
+</body>
+</html>
